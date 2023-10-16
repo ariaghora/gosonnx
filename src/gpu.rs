@@ -37,7 +37,6 @@ fn create_storage_buf<'a, T: bytemuck::Pod + Default + Debug>(
             | wgpu::BufferUsages::COPY_DST
             | wgpu::BufferUsages::COPY_SRC,
     });
-    println!("STORAGE CREATED FOR {}: {:?}", buf_label, vals);
     data
 }
 
@@ -57,7 +56,6 @@ fn create_staging_buf<'a, T: bytemuck::Pod + Default + Debug>(
         contents: bytemuck::cast_slice(&vals),
         usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
     });
-    println!("STAGING CREATED FOR {}: {:?}", buf_label, vals);
     data
 }
 
@@ -87,8 +85,6 @@ impl GPUExecutor {
 
     async fn execute_async(&mut self, graph: &mut Graph) -> Result<(), String> {
         let (device, queue) = self.create_device().await?;
-        // let mut command_encoder =
-        //     device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         // Prepare storage buffers
         for (tensor_name, tensor_val) in graph.tensor_map.iter() {
@@ -136,56 +132,8 @@ impl GPUExecutor {
         for op_name in sorted_op_names {
             let op = &graph.op_map[&op_name];
             match op.op_type.as_str() {
-                "Relu" => {
-                    let src = SHADER_DIR
-                        .get_file(format!("{}.wgsl", op.op_type.as_str()))
-                        .unwrap()
-                        .contents_utf8()
-                        .unwrap();
-                    let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-                        label: None,
-                        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(src)),
-                    });
-                    let compute_pipeline =
-                        device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                            label: None,
-                            layout: None,
-                            module: &module,
-                            entry_point: "main",
-                        });
-                    let mut bindgroup_entries: Vec<wgpu::BindGroupEntry> = vec![];
-                    let mut cnt = 0;
-                    for input in &op.inputs {
-                        bindgroup_entries.push(wgpu::BindGroupEntry {
-                            binding: cnt,
-                            resource: self.storage_buf_map[input].as_entire_binding(),
-                        });
-                        cnt += 1;
-                    }
-                    for output in &op.outputs {
-                        bindgroup_entries.push(wgpu::BindGroupEntry {
-                            binding: cnt,
-                            resource: self.storage_buf_map[output].as_entire_binding(),
-                        });
-                        cnt += 1;
-                    }
-                    let bindgroup_layout = compute_pipeline.get_bind_group_layout(0);
-                    let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        label: None,
-                        layout: &bindgroup_layout,
-                        entries: &bindgroup_entries.as_slice(),
-                    });
+                "Relu" | "Double" => self.simple_execution(&device, &mut encoder, op, graph)?,
 
-                    let len = tensor_len(&graph.tensor_map[&op.inputs[0]])?;
-                    {
-                        let mut cpass = encoder
-                            .begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
-                        cpass.set_pipeline(&compute_pipeline);
-                        cpass.set_bind_group(0, &bindgroup, &[]);
-                        cpass.insert_debug_marker(&op.op_type);
-                        cpass.dispatch_workgroups(len as u32, 1, 1);
-                    }
-                }
                 _ => {
                     return Err(format!("Op `{}` is unsupported yet", op.op_type));
                 }
@@ -212,6 +160,7 @@ impl GPUExecutor {
     }
 
     pub async fn get_output_async(&self, name: &str, graph: &Graph) -> Option<Tensor> {
+        let out_tensor = &graph.tensor_map[name];
         let staging_buf = &self.staging_buf_map[name];
 
         let buffer_slice = staging_buf.slice(..);
@@ -222,20 +171,93 @@ impl GPUExecutor {
 
         if let Some(Ok(())) = receiver.receive().await {
             let data = buffer_slice.get_mapped_range();
-            let result: Vec<f32> = bytemuck::cast_slice(&data).to_vec();
+
+            let t = match out_tensor {
+                Tensor::F32 { values, shape } => Some(Tensor::F32 {
+                    values: Some(bytemuck::cast_slice(&data).to_vec()),
+                    shape: shape.to_vec(),
+                }),
+                Tensor::F64 { values, shape } => todo!(),
+            };
+
             drop(data);
-            println!("{:?}", result);
+            staging_buf.unmap();
+
+            return t;
         }
         None
     }
 
+    /// Executes a single operation on the GPU.
+    ///
+    /// This function is responsible for executing a single operation within the computation graph on the GPU.
+    /// It sets up the necessary buffers, bind groups, and pipelines, and then dispatches the compute command.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - A mutable reference to the current GPU instance. This allows the function to modify the state of the GPU.
+    /// * `device` - A reference to the wgpu::Device. This represents the physical or virtual device on which the operation will be executed.
+    /// * `command_encoder` - A mutable reference to the wgpu::CommandEncoder. This is used to record the commands that will be sent to the GPU.
+    /// * `op` - A reference to the operation to be executed. This contains the information about the operation, such as its type and its inputs and outputs.
+    /// * `graph` - A reference to the computation graph. This contains the entire set of operations and tensors that make up the computation.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), String>` - Returns an empty result on success, indicating that the operation was executed without errors. If an error occurs during the execution, it returns a string containing an error message.
     fn simple_execution(
         &mut self,
         device: &wgpu::Device,
         command_encoder: &mut wgpu::CommandEncoder,
         op: &Op,
-        wg_sizes: [u32; 3],
+        graph: &Graph,
     ) -> Result<(), String> {
+        let src = SHADER_DIR
+            .get_file(format!("{}.wgsl", op.op_type.as_str()))
+            .unwrap()
+            .contents_utf8()
+            .unwrap();
+        let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(src)),
+        });
+        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: None,
+            module: &module,
+            entry_point: "main",
+        });
+        let mut bindgroup_entries: Vec<wgpu::BindGroupEntry> = vec![];
+        let mut cnt = 0;
+        for input in &op.inputs {
+            bindgroup_entries.push(wgpu::BindGroupEntry {
+                binding: cnt,
+                resource: self.storage_buf_map[input].as_entire_binding(),
+            });
+            cnt += 1;
+        }
+        for output in &op.outputs {
+            bindgroup_entries.push(wgpu::BindGroupEntry {
+                binding: cnt,
+                resource: self.storage_buf_map[output].as_entire_binding(),
+            });
+            cnt += 1;
+        }
+        let bindgroup_layout = compute_pipeline.get_bind_group_layout(0);
+        let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &bindgroup_layout,
+            entries: &bindgroup_entries.as_slice(),
+        });
+
+        let len = tensor_len(&graph.tensor_map[&op.inputs[0]])?;
+        {
+            let mut cpass =
+                command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+            cpass.set_pipeline(&compute_pipeline);
+            cpass.set_bind_group(0, &bindgroup, &[]);
+            cpass.insert_debug_marker(&op.op_type);
+            cpass.dispatch_workgroups(len as u32, 1, 1);
+        }
         Ok(())
     }
 

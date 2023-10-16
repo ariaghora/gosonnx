@@ -136,7 +136,6 @@ mod tests {
 
     #[test]
     fn simple_relu() -> Result<(), Box<dyn Error>> {
-        // Graph definition
         let mut graph = Graph::new();
         graph.new_tensor_f32("X".into(), Some(vec![0.5, -1.0, 2.0]), vec![1, 3]);
         graph.new_tensor_f32("Y".into(), None, vec![1, 3]);
@@ -144,19 +143,47 @@ mod tests {
             .new_op(vec!["X"], vec!["Y"], "my_relu_1", "Relu")
             .unwrap();
 
-        // Graph execution
         graph.run()?;
         if let Some(result) = graph.get_output("Y") {
             if let Tensor::F32 { values, shape } = result {
                 assert_eq!(values, Some(vec![0.5, 0.0, 2.0]));
                 assert_eq!(shape, vec![1, 3]);
             } else {
-                // panic!("Output should be Tensor::F32")
+                panic!("Output should be Tensor::F32")
             }
         } else {
-            // panic!("Output Y not found")
+            panic!("Output Y not found")
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn multi_module() -> Result<(), Box<dyn Error>> {
+        let mut graph = Graph::new();
+        graph.new_tensor_f32("X".into(), Some(vec![0.5, -1.0, 2.0]), vec![1, 3]);
+        graph.new_tensor_f32("Y".into(), Some(vec![0.0; 3]), vec![1, 3]);
+        graph.new_tensor_f32("Z".into(), Some(vec![0.0; 3]), vec![1, 3]);
+        graph
+            .new_op(vec!["X"], vec!["Y"], "my_relu", "Relu")
+            .unwrap();
+        graph
+            .new_op(vec!["Y"], vec!["Z"], "my_double", "Double")
+            .unwrap();
+        graph.run()?;
+
+        println!("Y: {:#?}", graph.get_output("Y"));
+        println!("Z: {:#?}", graph.get_output("Z"));
+        if let Some(result) = graph.get_output("Z") {
+            if let Tensor::F32 { values, shape } = result {
+                assert_eq!(values, Some(vec![1.0, 0.0, 4.0]));
+                assert_eq!(shape, vec![1, 3]);
+            } else {
+                panic!("Output should be Tensor::F32")
+            }
+        } else {
+            panic!("Output Y not found")
+        }
         Ok(())
     }
 }
