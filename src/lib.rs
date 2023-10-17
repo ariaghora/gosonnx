@@ -41,9 +41,10 @@ impl Op {
 }
 
 pub struct Graph {
-    executor: Option<RefCell<GPUExecutor>>,
-    pub tensor_map: HashMap<String, Tensor>,
-    pub op_map: HashMap<String, Op>,
+    pub(crate) executor: Option<RefCell<GPUExecutor>>,
+    pub(crate) tensor_map: HashMap<String, Tensor>,
+    pub(crate) op_map: HashMap<String, Op>,
+    pub(crate) output_tensor_map: HashMap<String, Tensor>,
 }
 
 impl Graph {
@@ -52,6 +53,7 @@ impl Graph {
             executor: None,
             tensor_map: HashMap::new(),
             op_map: HashMap::new(),
+            output_tensor_map: HashMap::new(),
         }
     }
 
@@ -105,15 +107,6 @@ impl Graph {
         Ok(())
     }
 
-    pub fn get_output(&self, name: &str) -> Option<&Tensor> {
-        // if let Some(executor) = &self.executor {
-        //     executor.borrow_mut().get_output(name, self)
-        // } else {
-        //     None
-        // }
-        self.tensor_map.get(name)
-    }
-
     pub fn new_tensor_f32(
         &mut self,
         tensor_name: String,
@@ -122,6 +115,10 @@ impl Graph {
     ) {
         self.tensor_map
             .insert(tensor_name, Tensor::F32 { values, shape });
+    }
+
+    fn get_output(&self, arg: &str) -> Option<&Tensor> {
+        self.output_tensor_map.get(arg)
     }
 }
 
@@ -165,7 +162,7 @@ mod tests {
         graph.new_tensor_f32("X".into(), Some(vec![0.5, -1.0, 2.0]), vec![1, 3]);
         graph.new_tensor_f32("Y".into(), Some(vec![0.0; 3]), vec![1, 3]);
         graph.new_tensor_f32("Z".into(), Some(vec![0.0; 3]), vec![1, 3]);
-        graph.new_tensor_f32("A".into(), Some(vec![0.0; 3]), vec![1, 3]);
+        graph.new_tensor_f32("final".into(), Some(vec![0.0; 3]), vec![1, 3]);
         graph
             .new_op(vec!["X"], vec!["Y"], "my_relu", "Relu")
             .unwrap();
@@ -173,23 +170,21 @@ mod tests {
             .new_op(vec!["Y"], vec!["Z"], "my_double", "Double")
             .unwrap();
         graph
-            .new_op(vec!["Z"], vec!["A"], "my_double2", "Double")
+            .new_op(vec!["Z"], vec!["final"], "my_double2", "Double")
             .unwrap();
+        graph.connect("my_relu", "my_double")?;
+        graph.connect("my_double", "my_double2")?;
         graph.run()?;
 
-        println!("Y: {:#?}", graph.get_output("Y"));
-        println!("Z: {:#?}", graph.get_output("Z"));
-        println!("A: {:#?}", graph.get_output("A"));
-
-        if let Some(result) = graph.get_output("Z") {
+        if let Some(result) = graph.get_output("final") {
             if let Tensor::F32 { values, shape } = result {
-                assert_eq!(values, &Some(vec![1.0, 0.0, 4.0]));
+                assert_eq!(values, &Some(vec![2.0, 0.0, 8.0]));
                 assert_eq!(shape, &vec![1, 3]);
             } else {
                 panic!("Output should be Tensor::F32")
             }
         } else {
-            panic!("Output Y not found")
+            panic!("Output not found")
         }
         Ok(())
     }

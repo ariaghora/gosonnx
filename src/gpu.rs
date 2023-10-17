@@ -1,14 +1,8 @@
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    default,
-    fmt::{format, Debug},
-    future::Future,
-};
+use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 
 use crate::{Graph, Op, Tensor};
 use include_dir::{include_dir, Dir};
-use wgpu::{util::DeviceExt, Device, QuerySet};
+use wgpu::util::DeviceExt;
 
 static SHADER_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/shader");
 
@@ -64,7 +58,6 @@ fn tensor_len(t: &Tensor) -> Result<usize, String> {
     let size = match t {
         Tensor::F32 { values, .. } => values.as_ref().unwrap().len(),
         Tensor::F64 { values, .. } => values.as_ref().unwrap().len(),
-        _ => return Err(format!("Cannot get size from tensor of type {:?}", t)),
     };
     Ok(size.clone())
 }
@@ -115,9 +108,9 @@ impl GPUExecutor {
             let t_node = &graph.op_map[terminal];
             for output in &t_node.outputs {
                 let tensor = &graph.tensor_map[output];
-                let (staging_buf) = match tensor {
+                let staging_buf = match tensor {
                     Tensor::F32 { values, shape } => {
-                        (create_staging_buf(&device, &output, values, shape))
+                        create_staging_buf(&device, &output, values, shape)
                     }
                     Tensor::F64 { values, shape } => todo!(),
                 };
@@ -152,10 +145,12 @@ impl GPUExecutor {
             }
         }
 
+        queue.submit(Some(encoder.finish()));
+        device.poll(wgpu::Maintain::Wait);
+
         let mut receiver_map = HashMap::new();
         let mut buffer_slice_map = HashMap::new();
 
-        queue.submit(Some(encoder.finish()));
         for terminal in &terminals {
             let t_node = &graph.op_map[terminal];
             for output in &t_node.outputs {
@@ -184,12 +179,16 @@ impl GPUExecutor {
                             values: Some(bytemuck::cast_slice(&data).to_vec()),
                             shape: shape.to_vec(),
                         },
-                        Tensor::F64 { values, shape } => todo!(),
+                        Tensor::F64 {
+                            values: _,
+                            shape: _,
+                        } => todo!(),
                     };
 
-                    graph.tensor_map.insert(output.clone(), t);
                     drop(data);
                     staging_buf.unmap();
+
+                    graph.output_tensor_map.insert(output.clone(), t);
                 }
             }
         }
@@ -199,22 +198,6 @@ impl GPUExecutor {
         Ok(())
     }
 
-    /// Executes a single operation on the GPU.
-    ///
-    /// This function is responsible for executing a single operation within the computation graph on the GPU.
-    /// It sets up the necessary buffers, bind groups, and pipelines, and then dispatches the compute command.
-    ///
-    /// # Arguments
-    ///
-    /// * `self` - A mutable reference to the current GPU instance. This allows the function to modify the state of the GPU.
-    /// * `device` - A reference to the wgpu::Device. This represents the physical or virtual device on which the operation will be executed.
-    /// * `command_encoder` - A mutable reference to the wgpu::CommandEncoder. This is used to record the commands that will be sent to the GPU.
-    /// * `op` - A reference to the operation to be executed. This contains the information about the operation, such as its type and its inputs and outputs.
-    /// * `graph` - A reference to the computation graph. This contains the entire set of operations and tensors that make up the computation.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<(), String>` - Returns an empty result on success, indicating that the operation was executed without errors. If an error occurs during the execution, it returns a string containing an error message.
     fn simple_execution(
         &mut self,
         device: &wgpu::Device,
