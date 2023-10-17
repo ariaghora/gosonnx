@@ -7,9 +7,6 @@ use wgpu::util::DeviceExt;
 static SHADER_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/shader");
 
 pub struct GPUExecutor {
-    device: Option<wgpu::Device>,
-    encoder: Option<wgpu::CommandEncoder>,
-    queue: Option<wgpu::Queue>,
     pub storage_buf_map: HashMap<String, wgpu::Buffer>,
     pub staging_buf_map: HashMap<String, wgpu::Buffer>,
 }
@@ -65,9 +62,6 @@ fn tensor_len(t: &Tensor) -> Result<usize, String> {
 impl GPUExecutor {
     pub fn new() -> Self {
         Self {
-            device: None,
-            encoder: None,
-            queue: None,
             storage_buf_map: HashMap::new(),
             staging_buf_map: HashMap::new(),
         }
@@ -89,7 +83,6 @@ impl GPUExecutor {
                 Tensor::F64 { values, shape } => {
                     create_storage_buf(&device, &tensor_name, values, shape)
                 }
-                _ => return Err(format!("Tensor type {:?} is not supported ", tensor_val)),
             };
 
             self.storage_buf_map.insert(tensor_name.clone(), buf);
@@ -112,7 +105,10 @@ impl GPUExecutor {
                     Tensor::F32 { values, shape } => {
                         create_staging_buf(&device, &output, values, shape)
                     }
-                    Tensor::F64 { values, shape } => todo!(),
+                    Tensor::F64 {
+                        values: _,
+                        shape: _,
+                    } => todo!(),
                 };
                 self.staging_buf_map.insert(output.clone(), staging_buf);
             }
@@ -193,8 +189,6 @@ impl GPUExecutor {
             }
         }
 
-        self.device = Some(device);
-        self.queue = Some(queue);
         Ok(())
     }
 

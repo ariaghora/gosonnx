@@ -4,7 +4,6 @@ pub mod ops;
 use std::{cell::RefCell, collections::HashMap};
 
 use gpu::GPUExecutor;
-use ops::relu::make_relu;
 
 #[derive(Debug)]
 pub enum Tensor {
@@ -117,12 +116,12 @@ impl Graph {
             .insert(tensor_name, Tensor::F32 { values, shape });
     }
 
-    fn get_output(&self, arg: &str) -> Option<&Tensor> {
+    pub fn get_output(&self, arg: &str) -> Option<&Tensor> {
         self.output_tensor_map.get(arg)
     }
 }
 
-pub fn open(filename: &str) {}
+pub fn open(_filename: &str) {}
 
 pub fn run() {}
 
