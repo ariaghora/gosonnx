@@ -52,11 +52,13 @@ fn create_staging_buf<'a, T: bytemuck::Pod + Default + Debug>(
 }
 
 fn tensor_len(t: &Tensor) -> Result<usize, String> {
-    let size = match t {
-        Tensor::F32 { values, .. } => values.as_ref().unwrap().len(),
-        Tensor::F64 { values, .. } => values.as_ref().unwrap().len(),
-    };
-    Ok(size.clone())
+    let len = match t {
+        Tensor::F32 { values: _, shape } => shape,
+        Tensor::F64 { values: _, shape } => shape,
+    }
+    .iter()
+    .fold(1, |x, y| x * y) as usize;
+    Ok(len)
 }
 
 impl GPUExecutor {

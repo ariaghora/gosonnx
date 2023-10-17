@@ -159,8 +159,8 @@ mod tests {
     fn multi_module() -> Result<(), Box<dyn Error>> {
         let mut graph = Graph::new();
         graph.new_tensor_f32("X".into(), Some(vec![0.5, -1.0, 2.0]), vec![1, 3]);
-        graph.new_tensor_f32("Y".into(), Some(vec![0.0; 3]), vec![1, 3]);
-        graph.new_tensor_f32("Z".into(), Some(vec![0.0; 3]), vec![1, 3]);
+        graph.new_tensor_f32("Y".into(), None, vec![1, 3]);
+        graph.new_tensor_f32("Z".into(), None, vec![1, 3]);
         graph.new_tensor_f32("final".into(), Some(vec![0.0; 3]), vec![1, 3]);
         graph
             .new_op(vec!["X"], vec!["Y"], "my_relu", "Relu")
