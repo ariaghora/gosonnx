@@ -1,13 +1,14 @@
 use std::{
     borrow::Cow,
     collections::HashMap,
+    default,
     fmt::{format, Debug},
     future::Future,
 };
 
 use crate::{Graph, Op, Tensor};
 use include_dir::{include_dir, Dir};
-use wgpu::{util::DeviceExt, Device};
+use wgpu::{util::DeviceExt, Device, QuerySet};
 
 static SHADER_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/shader");
 
@@ -31,7 +32,7 @@ fn create_storage_buf<'a, T: bytemuck::Pod + Default + Debug>(
         None => Cow::Owned(vec![T::default(); n_items]),
     };
     let data = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: Some(buf_label),
+        label: Some(format!("{}.storage", buf_label).as_str()),
         contents: bytemuck::cast_slice(&vals),
         usage: wgpu::BufferUsages::STORAGE
             | wgpu::BufferUsages::COPY_DST
@@ -52,7 +53,7 @@ fn create_staging_buf<'a, T: bytemuck::Pod + Default + Debug>(
         None => Cow::Owned(vec![T::default(); n_items]),
     };
     let data = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: Some(buf_label),
+        label: Some(format!("{}.staging", buf_label).as_str()),
         contents: bytemuck::cast_slice(&vals),
         usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
     });
@@ -114,13 +115,13 @@ impl GPUExecutor {
             let t_node = &graph.op_map[terminal];
             for output in &t_node.outputs {
                 let tensor = &graph.tensor_map[output];
-                let buf: wgpu::Buffer = match tensor {
+                let (staging_buf) = match tensor {
                     Tensor::F32 { values, shape } => {
-                        create_staging_buf(&device, &output, values, shape)
+                        (create_staging_buf(&device, &output, values, shape))
                     }
                     Tensor::F64 { values, shape } => todo!(),
                 };
-                self.staging_buf_map.insert(output.clone(), buf);
+                self.staging_buf_map.insert(output.clone(), staging_buf);
             }
         }
 
@@ -145,47 +146,57 @@ impl GPUExecutor {
             for output in &t_node.outputs {
                 let output_buf = &self.storage_buf_map[output];
                 let staging_buf = &self.staging_buf_map[output];
+
+                // Copy from GPU to CPU
                 encoder.copy_buffer_to_buffer(&output_buf, 0, &staging_buf, 0, staging_buf.size());
             }
         }
 
+        let mut receiver_map = HashMap::new();
+        let mut buffer_slice_map = HashMap::new();
+
         queue.submit(Some(encoder.finish()));
+        for terminal in &terminals {
+            let t_node = &graph.op_map[terminal];
+            for output in &t_node.outputs {
+                let staging_buf = &self.staging_buf_map[output];
+                let buffer_slice = staging_buf.slice(..);
+
+                let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
+                buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
+
+                receiver_map.insert(output, receiver);
+                buffer_slice_map.insert(output, buffer_slice);
+            }
+        }
+        device.poll(wgpu::Maintain::Wait);
+
+        for terminal in &terminals {
+            let t_node = &graph.op_map[terminal];
+            for output in &t_node.outputs {
+                let staging_buf = &self.staging_buf_map[output];
+                if let Some(Ok(())) = receiver_map[output].receive().await {
+                    let data = buffer_slice_map[output].get_mapped_range();
+
+                    let out_tensor = &graph.tensor_map[output];
+                    let t = match out_tensor {
+                        Tensor::F32 { values: _, shape } => Tensor::F32 {
+                            values: Some(bytemuck::cast_slice(&data).to_vec()),
+                            shape: shape.to_vec(),
+                        },
+                        Tensor::F64 { values, shape } => todo!(),
+                    };
+
+                    graph.tensor_map.insert(output.clone(), t);
+                    drop(data);
+                    staging_buf.unmap();
+                }
+            }
+        }
 
         self.device = Some(device);
+        self.queue = Some(queue);
         Ok(())
-    }
-
-    pub fn get_output(&self, name: &str, graph: &Graph) -> Option<Tensor> {
-        pollster::block_on(self.get_output_async(name, graph))
-    }
-
-    pub async fn get_output_async(&self, name: &str, graph: &Graph) -> Option<Tensor> {
-        let out_tensor = &graph.tensor_map[name];
-        let staging_buf = &self.staging_buf_map[name];
-
-        let buffer_slice = staging_buf.slice(..);
-        let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
-        buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
-
-        self.device.as_ref().unwrap().poll(wgpu::Maintain::Wait);
-
-        if let Some(Ok(())) = receiver.receive().await {
-            let data = buffer_slice.get_mapped_range();
-
-            let t = match out_tensor {
-                Tensor::F32 { values, shape } => Some(Tensor::F32 {
-                    values: Some(bytemuck::cast_slice(&data).to_vec()),
-                    shape: shape.to_vec(),
-                }),
-                Tensor::F64 { values, shape } => todo!(),
-            };
-
-            drop(data);
-            staging_buf.unmap();
-
-            return t;
-        }
-        None
     }
 
     /// Executes a single operation on the GPU.
@@ -255,7 +266,7 @@ impl GPUExecutor {
                 command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
             cpass.set_pipeline(&compute_pipeline);
             cpass.set_bind_group(0, &bindgroup, &[]);
-            cpass.insert_debug_marker(&op.op_type);
+            cpass.insert_debug_marker(&op.op_name);
             cpass.dispatch_workgroups(len as u32, 1, 1);
         }
         Ok(())
@@ -267,17 +278,19 @@ impl GPUExecutor {
             .request_adapter(&wgpu::RequestAdapterOptions::default())
             .await
             .unwrap();
+        let features = adapter.features();
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::downlevel_defaults(),
+                    features: features & wgpu::Features::TIMESTAMP_QUERY,
+                    limits: Default::default(),
                 },
                 None,
             )
             .await
             .unwrap();
+
         Ok((device, queue))
     }
 }
