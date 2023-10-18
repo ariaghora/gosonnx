@@ -94,29 +94,21 @@ impl GPUExecutor {
             self.storage_buf_map.insert(tensor_name.clone(), buf);
         }
 
+        let terminal_outputs = graph.terminal_outputs();
+
         // Prepare staging buffers. There will be one staging buffer corresponding to
         // each terminal node output.
-        let terminals = graph
-            .op_map
-            .values()
-            .filter(|o| o.nexts.len() == 0)
-            .map(|o| o.op_name.clone())
-            .collect::<Vec<String>>();
-
-        for terminal in &terminals {
-            let t_node = &graph.op_map[terminal];
-            for output in &t_node.outputs {
-                let tensor = &graph.tensor_map[output];
-                let staging_buf = match tensor {
-                    Tensor::F32 { values, shape } => {
-                        create_staging_buf(&device, &output, values, shape)
-                    }
-                    Tensor::F64 { values, shape } => {
-                        create_staging_buf(&device, &output, values, shape)
-                    }
-                };
-                self.staging_buf_map.insert(output.clone(), staging_buf);
-            }
+        for output in &terminal_outputs {
+            let tensor = &graph.tensor_map[output];
+            let staging_buf = match tensor {
+                Tensor::F32 { values, shape } => {
+                    create_staging_buf(&device, &output, values, shape)
+                }
+                Tensor::F64 { values, shape } => {
+                    create_staging_buf(&device, &output, values, shape)
+                }
+            };
+            self.staging_buf_map.insert(output.clone(), staging_buf);
         }
 
         let mut encoder =
@@ -162,63 +154,54 @@ impl GPUExecutor {
             }
         }
 
-        for terminal in &terminals {
-            let t_node = &graph.op_map[terminal];
-            for output in &t_node.outputs {
-                let output_buf = &self.storage_buf_map[output];
-                let staging_buf = &self.staging_buf_map[output];
+        for output in &terminal_outputs {
+            let output_buf = &self.storage_buf_map[output];
+            let staging_buf = &self.staging_buf_map[output];
 
-                // Copy from GPU to CPU
-                encoder.copy_buffer_to_buffer(&output_buf, 0, &staging_buf, 0, staging_buf.size());
-            }
+            // Copy from GPU to CPU
+            encoder.copy_buffer_to_buffer(&output_buf, 0, &staging_buf, 0, staging_buf.size());
         }
 
         let mut receiver_map = HashMap::new();
         let mut buffer_slice_map = HashMap::new();
 
         queue.submit(Some(encoder.finish()));
-        for terminal in &terminals {
-            let t_node = &graph.op_map[terminal];
-            for output in &t_node.outputs {
-                let staging_buf = &self.staging_buf_map[output];
-                let buffer_slice = staging_buf.slice(..);
 
-                let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
-                buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
+        for output in &terminal_outputs {
+            let staging_buf = &self.staging_buf_map[output];
+            let buffer_slice = staging_buf.slice(..);
 
-                receiver_map.insert(output, receiver);
-                buffer_slice_map.insert(output, buffer_slice);
-            }
+            let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
+            buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
+
+            receiver_map.insert(output, receiver);
+            buffer_slice_map.insert(output, buffer_slice);
         }
         device.poll(wgpu::Maintain::Wait);
 
-        for terminal in &terminals {
-            let t_node = &graph.op_map[terminal];
-            for output in &t_node.outputs {
-                let staging_buf = &self.staging_buf_map[output];
-                if let Some(Ok(())) = receiver_map[output].receive().await {
-                    let data = buffer_slice_map[output].get_mapped_range();
+        for output in &terminal_outputs {
+            let staging_buf = &self.staging_buf_map[output];
+            if let Some(Ok(())) = receiver_map[output].receive().await {
+                let data = buffer_slice_map[output].get_mapped_range();
 
-                    let out_tensor = &graph.tensor_map[output];
-                    let t = match out_tensor {
-                        Tensor::F32 { values: _, shape } => Tensor::F32 {
-                            values: Some(
-                                bytemuck::cast_slice(&data)[..tensor_len(out_tensor).unwrap()]
-                                    .to_vec(),
-                            ),
-                            shape: shape.to_vec(),
-                        },
-                        Tensor::F64 {
-                            values: _,
-                            shape: _,
-                        } => todo!(),
-                    };
+                let out_tensor = &graph.tensor_map[output];
+                let t = match out_tensor {
+                    Tensor::F32 { values: _, shape } => Tensor::F32 {
+                        values: Some(
+                            bytemuck::cast_slice(&data)[..tensor_len(out_tensor).unwrap()].to_vec(),
+                        ),
+                        shape: shape.to_vec(),
+                    },
+                    Tensor::F64 {
+                        values: _,
+                        shape: _,
+                    } => todo!(),
+                };
 
-                    drop(data);
-                    staging_buf.unmap();
+                drop(data);
+                staging_buf.unmap();
 
-                    graph.output_tensor_map.insert(output.clone(), t);
-                }
+                graph.output_tensor_map.insert(output.clone(), t);
             }
         }
 
