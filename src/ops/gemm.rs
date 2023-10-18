@@ -129,6 +129,46 @@ mod tests {
     }
 
     #[test]
+    fn gemm_5x2() {
+        let mut graph = Graph::new();
+        graph.new_tensor_f32(
+            "X",
+            Some(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
+            vec![5, 2],
+        );
+        graph.new_tensor_f32("Y", Some(vec![1.0, 1.0, 2.0, 2.0]), vec![2, 2]);
+        graph.new_tensor_f32("output", None, vec![5, 2]);
+        graph
+            .new_op(
+                vec!["X", "Y"],
+                vec!["output"],
+                "my_gemm",
+                crate::OpType::Gemm {
+                    alpha: 1.,
+                    beta: 1.,
+                    trans_a: 0,
+                    trans_b: 0,
+                },
+            )
+            .unwrap();
+        graph.run().unwrap();
+        if let Some(t) = graph.get_output("output") {
+            if let Tensor::F32 { values, .. } = t {
+                assert_eq!(
+                    values,
+                    &Some(vec![
+                        5.0, 5.0, 11.0, 11.0, 17.0, 17.0, 23.0, 23.0, 29.0, 29.0
+                    ])
+                );
+            } else {
+                panic!("Invalid tensor found")
+            }
+        } else {
+            panic!("No output found")
+        }
+    }
+
+    #[test]
     fn gemm_bias_no_broadcast() {
         let mut graph = Graph::new();
         graph.new_tensor_f32("X", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![2, 2]);

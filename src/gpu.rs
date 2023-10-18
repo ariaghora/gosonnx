@@ -144,8 +144,7 @@ impl GPUExecutor {
                         graph,
                     )?;
                     let wg = &[64, 64, 1];
-                    self.execute_pass(&compiled, &device, &mut encoder, op, graph, wg)?
-                    // todo!()
+                    self.execute_pass(&compiled, &device, &mut encoder, op, wg)?
                 }
                 // Simple Op pass can be just executed.
                 // - 1 input & 1 output buffer
@@ -154,7 +153,7 @@ impl GPUExecutor {
                 OpType::Relu | OpType::Double => {
                     let len = tensor_len(&graph.tensor_map[&op.inputs[0]])?;
                     let wg = &[len as u32, 1, 1];
-                    self.execute_pass(shader_source, &device, &mut encoder, op, graph, wg)?
+                    self.execute_pass(shader_source, &device, &mut encoder, op, wg)?
                 }
 
                 _ => {
@@ -232,7 +231,6 @@ impl GPUExecutor {
         device: &wgpu::Device,
         command_encoder: &mut wgpu::CommandEncoder,
         op: &Op,
-        graph: &Graph,
         num_work_groups: &[u32],
     ) -> Result<(), String> {
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
