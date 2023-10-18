@@ -1,9 +1,9 @@
 pub mod gpu;
 pub mod ops;
 
-use std::{cell::RefCell, collections::HashMap};
-
 use gpu::GPUExecutor;
+use std::fmt;
+use std::{cell::RefCell, collections::HashMap};
 
 #[derive(Debug)]
 pub enum Tensor {
@@ -17,8 +17,42 @@ pub enum Tensor {
     },
 }
 
+impl Tensor {
+    pub fn shape(&self) -> Vec<i64> {
+        match self {
+            Tensor::F32 { values: _, shape } => shape.clone(),
+            Tensor::F64 { values: _, shape } => shape.clone(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum OpType {
+    Gemm {
+        alpha: f32,
+        beta: f32,
+        trans_a: i32,
+        trans_b: i32,
+    },
+    Relu,
+    Unknown,
+
+    Double, //Dummy. TODO: remove
+}
+
+impl fmt::Display for OpType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OpType::Gemm { .. } => write!(f, "Gemm"),
+            OpType::Relu => write!(f, "Relu"),
+            OpType::Unknown => write!(f, "Unknown"),
+            OpType::Double => write!(f, "Double"),
+        }
+    }
+}
+
 pub struct Op {
-    op_type: String,
+    op_type: OpType,
     op_name: String,
     prevs: Vec<String>,
     nexts: Vec<String>,
@@ -29,7 +63,7 @@ pub struct Op {
 impl Op {
     pub fn new() -> Self {
         Self {
-            op_type: "Unknown".into(),
+            op_type: OpType::Unknown,
             op_name: String::new(),
             prevs: vec![],
             nexts: vec![],
@@ -83,12 +117,12 @@ impl Graph {
         input_names: Vec<&str>,
         output_names: Vec<&str>,
         op_name: &str,
-        op_type: &str,
+        op_type: OpType,
     ) -> Result<(), String> {
         self.op_map.insert(
             op_name.into(),
             Op {
-                op_type: op_type.into(),
+                op_type,
                 op_name: String::from(op_name),
                 prevs: vec![],
                 nexts: vec![],
@@ -106,14 +140,9 @@ impl Graph {
         Ok(())
     }
 
-    pub fn new_tensor_f32(
-        &mut self,
-        tensor_name: String,
-        values: Option<Vec<f32>>,
-        shape: Vec<i64>,
-    ) {
+    pub fn new_tensor_f32(&mut self, tensor_name: &str, values: Option<Vec<f32>>, shape: Vec<i64>) {
         self.tensor_map
-            .insert(tensor_name, Tensor::F32 { values, shape });
+            .insert(tensor_name.into(), Tensor::F32 { values, shape });
     }
 
     pub fn get_output(&self, arg: &str) -> Option<&Tensor> {
@@ -134,10 +163,10 @@ mod tests {
     #[test]
     fn simple_relu() -> Result<(), Box<dyn Error>> {
         let mut graph = Graph::new();
-        graph.new_tensor_f32("X".into(), Some(vec![0.5, -1.0, 2.0]), vec![1, 3]);
-        graph.new_tensor_f32("Y".into(), None, vec![1, 3]);
+        graph.new_tensor_f32("X", Some(vec![0.5, -1.0, 2.0]), vec![1, 3]);
+        graph.new_tensor_f32("Y", None, vec![1, 3]);
         graph
-            .new_op(vec!["X"], vec!["Y"], "my_relu_1", "Relu")
+            .new_op(vec!["X"], vec!["Y"], "my_relu_1", OpType::Relu)
             .unwrap();
 
         graph.run()?;
@@ -158,18 +187,18 @@ mod tests {
     #[test]
     fn multi_module() -> Result<(), Box<dyn Error>> {
         let mut graph = Graph::new();
-        graph.new_tensor_f32("X".into(), Some(vec![0.5, -1.0, 2.0]), vec![1, 3]);
-        graph.new_tensor_f32("Y".into(), None, vec![1, 3]);
-        graph.new_tensor_f32("Z".into(), None, vec![1, 3]);
-        graph.new_tensor_f32("final".into(), Some(vec![0.0; 3]), vec![1, 3]);
+        graph.new_tensor_f32("X", Some(vec![0.5, -1.0, 2.0]), vec![1, 3]);
+        graph.new_tensor_f32("Y", None, vec![1, 3]);
+        graph.new_tensor_f32("Z", None, vec![1, 3]);
+        graph.new_tensor_f32("final".into(), None, vec![1, 3]);
         graph
-            .new_op(vec!["X"], vec!["Y"], "my_relu", "Relu")
+            .new_op(vec!["X"], vec!["Y"], "my_relu", OpType::Relu)
             .unwrap();
         graph
-            .new_op(vec!["Y"], vec!["Z"], "my_double", "Double")
+            .new_op(vec!["Y"], vec!["Z"], "my_double", OpType::Double)
             .unwrap();
         graph
-            .new_op(vec!["Z"], vec!["final"], "my_double2", "Double")
+            .new_op(vec!["Z"], vec!["final"], "my_double2", OpType::Double)
             .unwrap();
         graph.connect("my_relu", "my_double")?;
         graph.connect("my_double", "my_double2")?;

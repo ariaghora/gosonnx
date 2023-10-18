@@ -1,7 +1,11 @@
 use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 
-use crate::{Graph, Op, Tensor};
+use crate::{
+    ops::{gemm::GemmOp, Compile},
+    Graph, Op, OpType, Tensor,
+};
 use include_dir::{include_dir, Dir};
+use naga::FastHashMap;
 use wgpu::util::DeviceExt;
 
 static SHADER_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/shader");
@@ -107,10 +111,9 @@ impl GPUExecutor {
                     Tensor::F32 { values, shape } => {
                         create_staging_buf(&device, &output, values, shape)
                     }
-                    Tensor::F64 {
-                        values: _,
-                        shape: _,
-                    } => todo!(),
+                    Tensor::F64 { values, shape } => {
+                        create_staging_buf(&device, &output, values, shape)
+                    }
                 };
                 self.staging_buf_map.insert(output.clone(), staging_buf);
             }
@@ -123,11 +126,39 @@ impl GPUExecutor {
         let sorted_op_names = topo(&graph.op_map);
         for op_name in sorted_op_names {
             let op = &graph.op_map[&op_name];
-            match op.op_type.as_str() {
-                "Relu" | "Double" => self.simple_execution(&device, &mut encoder, op, graph)?,
+            let shader_source = SHADER_DIR
+                .get_file(format!("{}.glsl", op.op_type))
+                .unwrap()
+                .contents_utf8()
+                .unwrap();
+            match op.op_type {
+                OpType::Gemm {
+                    alpha,
+                    beta,
+                    trans_a,
+                    trans_b,
+                } => {
+                    let compiled = GemmOp::new(alpha, beta, trans_a, trans_b).compile(
+                        op,
+                        shader_source,
+                        graph,
+                    )?;
+                    let wg = &[64, 64, 1];
+                    self.execute_pass(&compiled, &device, &mut encoder, op, graph, wg)?
+                    // todo!()
+                }
+                // Simple Op pass can be just executed.
+                // - 1 input & 1 output buffer
+                // - Input length = output length
+                // - input type = output type
+                OpType::Relu | OpType::Double => {
+                    let len = tensor_len(&graph.tensor_map[&op.inputs[0]])?;
+                    let wg = &[len as u32, 1, 1];
+                    self.execute_pass(shader_source, &device, &mut encoder, op, graph, wg)?
+                }
 
                 _ => {
-                    return Err(format!("Op `{}` is unsupported yet", op.op_type));
+                    return Err(format!("Op `{:?}` is unsupported yet", op.op_type));
                 }
             }
         }
@@ -143,12 +174,10 @@ impl GPUExecutor {
             }
         }
 
-        queue.submit(Some(encoder.finish()));
-        device.poll(wgpu::Maintain::Wait);
-
         let mut receiver_map = HashMap::new();
         let mut buffer_slice_map = HashMap::new();
 
+        queue.submit(Some(encoder.finish()));
         for terminal in &terminals {
             let t_node = &graph.op_map[terminal];
             for output in &t_node.outputs {
@@ -174,7 +203,10 @@ impl GPUExecutor {
                     let out_tensor = &graph.tensor_map[output];
                     let t = match out_tensor {
                         Tensor::F32 { values: _, shape } => Tensor::F32 {
-                            values: Some(bytemuck::cast_slice(&data).to_vec()),
+                            values: Some(
+                                bytemuck::cast_slice(&data)[..tensor_len(out_tensor).unwrap()]
+                                    .to_vec(),
+                            ),
                             shape: shape.to_vec(),
                         },
                         Tensor::F64 {
@@ -194,21 +226,22 @@ impl GPUExecutor {
         Ok(())
     }
 
-    fn simple_execution(
+    fn execute_pass(
         &mut self,
+        shader_source: &str,
         device: &wgpu::Device,
         command_encoder: &mut wgpu::CommandEncoder,
         op: &Op,
         graph: &Graph,
+        num_work_groups: &[u32],
     ) -> Result<(), String> {
-        let src = SHADER_DIR
-            .get_file(format!("{}.wgsl", op.op_type.as_str()))
-            .unwrap()
-            .contents_utf8()
-            .unwrap();
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(src)),
+            source: wgpu::ShaderSource::Glsl {
+                shader: Cow::Borrowed(shader_source),
+                stage: naga::ShaderStage::Compute,
+                defines: FastHashMap::default(),
+            },
         });
         let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: None,
@@ -239,14 +272,13 @@ impl GPUExecutor {
             entries: &bindgroup_entries.as_slice(),
         });
 
-        let len = tensor_len(&graph.tensor_map[&op.inputs[0]])?;
         {
             let mut cpass =
                 command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
             cpass.set_pipeline(&compute_pipeline);
             cpass.set_bind_group(0, &bindgroup, &[]);
             cpass.insert_debug_marker(&op.op_name);
-            cpass.dispatch_workgroups(len as u32, 1, 1);
+            cpass.dispatch_workgroups(num_work_groups[0], num_work_groups[1], num_work_groups[2]);
         }
         Ok(())
     }
