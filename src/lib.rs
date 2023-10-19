@@ -4,7 +4,7 @@ pub mod onnxparser;
 pub mod ops;
 
 use gpu::GPUExecutor;
-use onnx::{TensorProto, ValueInfoProto};
+use onnx::{NodeProto, TensorProto, ValueInfoProto};
 use protobuf::Message;
 use std::fmt;
 use std::{cell::RefCell, collections::HashMap};
@@ -94,6 +94,19 @@ pub enum OpType {
     Double, //Dummy. TODO: remove
 }
 
+impl OpType {
+    pub fn from_node_proto(node_proto: &NodeProto) -> Result<Self, String> {
+        match node_proto.get_op_type() {
+            "Conv" => Err("Conv todo".into()),
+            "Relu" => Ok(Self::Relu),
+            _ => Err(format!(
+                "ONNX op type {} is not supported yet",
+                node_proto.get_op_type()
+            )),
+        }
+    }
+}
+
 impl fmt::Display for OpType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -105,6 +118,7 @@ impl fmt::Display for OpType {
     }
 }
 
+#[derive(Debug)]
 pub struct Op {
     op_type: OpType,
     op_name: String,
@@ -167,7 +181,7 @@ impl Graph {
 
     /// For all (A, B) node pairs in graph, connect A and B if A.outputs intersects
     /// with B.inputs and A != B
-    fn compile(&mut self) -> Result<(), String> {
+    pub(crate) fn compile(&mut self) -> Result<(), String> {
         let node_names = {
             let keys = self.op_map.keys();
             keys.into_iter()
