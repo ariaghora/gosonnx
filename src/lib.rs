@@ -24,6 +24,13 @@ impl Tensor {
             Tensor::F64 { values: _, shape } => shape.clone(),
         }
     }
+
+    pub fn type_glsl(&self) -> String {
+        match self {
+            Tensor::F32 { .. } => "float".into(),
+            Tensor::F64 { .. } => "double".into(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -95,7 +102,6 @@ impl Graph {
         input_names: Vec<&str>,
         output_names: Vec<&str>,
         prev_nodes: Vec<&str>,
-        // next_nodes: Vec<&str>,
         op_name: &str,
         op_type: OpType,
     ) -> Result<(), String> {
@@ -225,8 +231,6 @@ mod tests {
                 OpType::Double,
             )
             .unwrap();
-        // graph.connect("my_relu", "my_double")?;
-        // graph.connect("my_double", "my_double2")?;
         graph.run()?;
 
         if let Some(result) = graph.get_output("final") {

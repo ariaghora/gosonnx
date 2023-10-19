@@ -1,21 +1,22 @@
 #version 450
 
 layout(set = 0, binding = 0) buffer Left {
-    float left[];
+    {{a_type}} left[];
 };
 layout(set = 0, binding = 1) buffer Right {
-    float right[];
+    {{b_type}} right[];
 };
+
 {% if use_bias %}
 layout(set = 0, binding = 2) buffer Bias {
-    float bias[];
+    {{bias_type}} bias[];
 };
 layout(set = 0, binding = 3) buffer Output {
-    float output[];
+    {{a_type}} output[];
 };
 {% else %}
 layout(set = 0, binding = 2) buffer Output {
-    float output[];
+    {{a_type}} output[];
 };
 {% endif %}
 
@@ -39,10 +40,10 @@ void main() {
     uint global_y = gl_GlobalInvocationID.y;
 
     if (global_x < n && global_y < m) {
-        float sum = 0.0;
+        {{a_type}} sum = 0.0;
         for (uint i = 0u; i < k; ++i) {
-            float a;
-            float b;
+            {{a_type}} a;
+            {{b_type}} b;
             if ({{trans_a}} == 1) {
                 a = left[i * m + global_y];
             } else {
@@ -57,7 +58,7 @@ void main() {
         }
 
         {% if use_bias %}
-        float bias_val = bias[global_y * uint(bias_w) + global_x % uint(bias_w)];
+        {{bias_type}} bias_val = bias[global_y * uint(bias_w) + global_x % uint(bias_w)];
         output[global_y * n + global_x] = alpha * sum + beta * bias_val;
         {% else %}
         output[global_y * n + global_x] = alpha * sum;

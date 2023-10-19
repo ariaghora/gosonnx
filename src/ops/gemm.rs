@@ -36,6 +36,16 @@ impl Compile for GemmOp {
 
         let t_a = &graph.tensor_map[&op.inputs[0]];
         let t_b = &graph.tensor_map[&op.inputs[1]];
+        let a_type = t_a.type_glsl();
+        let b_type = t_b.type_glsl();
+        if a_type != b_type {
+            return Err(format!(
+                "Cannot perform Conv between {} and {}",
+                a_type, b_type
+            ));
+        }
+        context.insert("a_type", &a_type);
+        context.insert("b_type", &b_type);
 
         context.insert("m", &t_a.shape()[0]);
         context.insert("k", &t_a.shape()[1]);
@@ -43,6 +53,10 @@ impl Compile for GemmOp {
 
         if op.inputs.len() > 2 {
             if let Some(bias) = &graph.tensor_map.get(&op.inputs[2]) {
+                if bias.type_glsl() != b_type {
+                    return Err("Bias type must be identical with input and weight tensors".into());
+                }
+                context.insert("bias_type", &bias.type_glsl());
                 if bias.shape().len() == 2 {
                     context.insert("bias_h", &bias.shape()[0]);
                     context.insert("bias_w", &bias.shape()[1]);
