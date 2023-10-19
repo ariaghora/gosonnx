@@ -90,7 +90,6 @@ mod tests {
             .new_op(
                 vec!["X", "Y"],
                 vec!["output"],
-                vec![],
                 "my_gemm",
                 crate::OpType::Gemm {
                     alpha: 1.,
@@ -122,7 +121,6 @@ mod tests {
             .new_op(
                 vec!["X", "Y"],
                 vec!["output"],
-                vec![],
                 "my_gemm",
                 crate::OpType::Gemm {
                     alpha: 1.,
@@ -158,7 +156,6 @@ mod tests {
             .new_op(
                 vec!["X", "Y"],
                 vec!["output"],
-                vec![],
                 "my_gemm",
                 crate::OpType::Gemm {
                     alpha: 1.,
@@ -196,7 +193,6 @@ mod tests {
             .new_op(
                 vec!["X", "Y", "bias"],
                 vec!["output"],
-                vec![],
                 "my_gemm",
                 crate::OpType::Gemm {
                     alpha: 1.,
@@ -229,7 +225,6 @@ mod tests {
             .new_op(
                 vec!["X", "Y", "bias"],
                 vec!["output"],
-                vec![],
                 "my_gemm",
                 crate::OpType::Gemm {
                     alpha: 1.,

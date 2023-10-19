@@ -1,7 +1,11 @@
 pub mod gpu;
+pub mod onnx;
+pub mod onnxparser;
 pub mod ops;
 
 use gpu::GPUExecutor;
+use onnx::{TensorProto, ValueInfoProto};
+use protobuf::Message;
 use std::fmt;
 use std::{cell::RefCell, collections::HashMap};
 
@@ -30,6 +34,49 @@ impl Tensor {
             Tensor::F32 { .. } => "float".into(),
             Tensor::F64 { .. } => "double".into(),
         }
+    }
+
+    pub(crate) fn from_tensor_proto(t: &TensorProto, empty: bool) -> Result<Tensor, String> {
+        match t.get_data_type() {
+            1 => Ok(Tensor::F32 {
+                values: if empty {
+                    None
+                } else {
+                    Some(bytemuck::cast_slice(t.get_raw_data()).to_vec())
+                },
+                shape: t.get_dims().to_vec(),
+            }),
+            _ => Err("Unsupported tensor proto data type".into()),
+        }
+    }
+
+    pub(crate) fn value_from_value_info_proto(value_info: &ValueInfoProto) -> Result<Self, String> {
+        if let Some(value) = &value_info.get_field_type().value {
+            match value {
+                onnx::TypeProto_oneof_value::tensor_type(t) => {
+                    return match t.get_elem_type() {
+                        1 => Ok(Tensor::F32 {
+                            values: None,
+                            shape: t
+                                .get_shape()
+                                .get_dim()
+                                .iter()
+                                .map(|v| v.get_dim_value())
+                                .collect(),
+                        }),
+                        _ => Err(format!("Type `{}` not supported yet", t.get_elem_type())),
+                    };
+                }
+                onnx::TypeProto_oneof_value::sequence_type(_) => todo!(),
+                onnx::TypeProto_oneof_value::map_type(_) => todo!(),
+                onnx::TypeProto_oneof_value::optional_type(_) => todo!(),
+                onnx::TypeProto_oneof_value::sparse_tensor_type(_) => todo!(),
+            }
+        }
+        Err(format!(
+            "Value info proto {} does not have associated field type proto",
+            value_info.get_name()
+        ))
     }
 }
 
@@ -101,7 +148,6 @@ impl Graph {
         &mut self,
         input_names: Vec<&str>,
         output_names: Vec<&str>,
-        prev_nodes: Vec<&str>,
         op_name: &str,
         op_type: OpType,
     ) -> Result<(), String> {
@@ -110,7 +156,7 @@ impl Graph {
             Op {
                 op_type,
                 op_name: String::from(op_name),
-                prevs: prev_nodes.iter().map(|s| s.to_string()).collect(),
+                prevs: vec![],
                 nexts: vec![], // this will be filled later
                 inputs: input_names.iter().map(|s| s.to_string()).collect(),
                 outputs: output_names.iter().map(|s| s.to_string()).collect(),
@@ -119,23 +165,45 @@ impl Graph {
         Ok(())
     }
 
-    pub fn run(&mut self) -> Result<(), String> {
-        // Chain all ops
+    /// For all (A, B) node pairs in graph, connect A and B if A.outputs intersects
+    /// with B.inputs and A != B
+    fn compile(&mut self) -> Result<(), String> {
         let node_names = {
             let keys = self.op_map.keys();
             keys.into_iter()
                 .map(|f| f.to_string())
                 .collect::<Vec<String>>()
         };
-        for node_name in node_names {
-            let prevs = &self.op_map[&node_name].prevs.to_vec();
-            for prev in prevs {
-                // register current node to prev node's nexts
-                let prev_node = self.op_map.get_mut(prev);
-                prev_node.unwrap().nexts.push(node_name.clone());
+        for from in &node_names {
+            for to in &node_names {
+                if from == to {
+                    continue;
+                }
+                let from_n_outputs = &self.op_map.get(from).unwrap().outputs;
+                let to_n_inputs = &self.op_map.get(to).unwrap().inputs;
+                let connected = from_n_outputs.iter().all(|n| to_n_inputs.contains(n));
+                if !to_n_inputs.contains(from) && connected {
+                    self.op_map
+                        .get_mut(from)
+                        .unwrap()
+                        .nexts
+                        .push(to.to_string());
+
+                    self.op_map
+                        .get_mut(to)
+                        .unwrap()
+                        .prevs
+                        .push(from.to_string());
+                }
             }
         }
+        Ok(())
+    }
 
+    pub fn run(&mut self) -> Result<(), String> {
+        self.compile()?;
+
+        // Initialize GPU executor and run it!
         let mut executor = GPUExecutor::new();
         executor.execute(self)?;
         self.executor = Some(RefCell::new(executor));
@@ -167,9 +235,14 @@ impl Graph {
         }
         outputs
     }
+    pub fn open_onnx(filename: &str) -> Result<Graph, Box<dyn std::error::Error>> {
+        let model_bytes = std::fs::read(filename).map_err(|e| e.to_string())?;
+        let mut model_proto =
+            onnx::ModelProto::parse_from_bytes(&model_bytes).map_err(|e| e.to_string())?;
+        let graph = onnxparser::parse_model_proto(&mut model_proto)?;
+        Ok(graph)
+    }
 }
-
-pub fn open(_filename: &str) {}
 
 pub fn run() {}
 
@@ -180,12 +253,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn open_onnx() -> Result<(), Box<dyn Error>> {
+        let graph = Graph::open_onnx("data/models/doc_classifier_model.onnx")?;
+        assert_eq!(graph.op_map.keys().len(), 13);
+        Ok(())
+    }
+
+    #[test]
     fn simple_relu() -> Result<(), Box<dyn Error>> {
         let mut graph = Graph::new();
         graph.new_tensor_f32("X", Some(vec![0.5, -1.0, 2.0]), vec![1, 3]);
         graph.new_tensor_f32("Y", None, vec![1, 3]);
         graph
-            .new_op(vec!["X"], vec!["Y"], vec![], "my_relu_1", OpType::Relu)
+            .new_op(vec!["X"], vec!["Y"], "my_relu_1", OpType::Relu)
             .unwrap();
 
         graph.run()?;
@@ -211,25 +291,13 @@ mod tests {
         graph.new_tensor_f32("Z", None, vec![1, 3]);
         graph.new_tensor_f32("final".into(), None, vec![1, 3]);
         graph
-            .new_op(vec!["X"], vec!["Y"], vec![], "my_relu", OpType::Relu)
+            .new_op(vec!["X"], vec!["Y"], "my_relu", OpType::Relu)
             .unwrap();
         graph
-            .new_op(
-                vec!["Y"],
-                vec!["Z"],
-                vec!["my_relu"],
-                "my_double",
-                OpType::Double,
-            )
+            .new_op(vec!["Y"], vec!["Z"], "my_double", OpType::Double)
             .unwrap();
         graph
-            .new_op(
-                vec!["Z"],
-                vec!["final"],
-                vec!["my_double"],
-                "my_double2",
-                OpType::Double,
-            )
+            .new_op(vec!["Z"], vec!["final"], "my_double2", OpType::Double)
             .unwrap();
         graph.run()?;
 
