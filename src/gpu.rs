@@ -1,9 +1,8 @@
 use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 
-use crate::{
-    ops::{gemm::GemmOp, Compile},
-    Graph, Op, OpType, Tensor,
-};
+use crate::graph::{Graph, Op, OpType, Tensor};
+use crate::ops::conv::ConvOp;
+use crate::ops::{gemm::GemmOp, Compile};
 use include_dir::{include_dir, Dir};
 use naga::FastHashMap;
 use wgpu::util::DeviceExt;
@@ -123,14 +122,14 @@ impl GPUExecutor {
                 .unwrap()
                 .contents_utf8()
                 .unwrap();
-            match op.op_type {
+            match &op.op_type {
                 OpType::Gemm {
                     alpha,
                     beta,
                     trans_a,
                     trans_b,
                 } => {
-                    let compiled = GemmOp::new(alpha, beta, trans_a, trans_b).compile(
+                    let compiled = GemmOp::new(*alpha, *beta, *trans_a, *trans_b).compile(
                         op,
                         shader_source,
                         graph,
@@ -138,13 +137,15 @@ impl GPUExecutor {
                     let wg = &[64, 64, 1];
                     self.execute_pass(&compiled, &device, &mut encoder, op, wg)?
                 }
+                OpType::Conv { dilations } => {
+                    let _conv = ConvOp::new(dilations.clone());
+                }
                 // Simple Op pass can be just executed.
                 // - 1 input & 1 output buffer
                 // - Input length = output length
                 // - input type = output type
                 OpType::Relu | OpType::Double => {
-                    let len = tensor_len(&graph.tensor_map[&op.inputs[0]])?;
-                    let wg = &[len as u32, 1, 1];
+                    let wg = &[1024, 1, 1];
                     self.execute_pass(shader_source, &device, &mut encoder, op, wg)?
                 }
 

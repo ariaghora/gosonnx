@@ -1,16 +1,16 @@
-use crate::{Graph, Op};
+use crate::graph::{Graph, Op};
 
 use super::Compile;
 
 pub struct GemmOp {
     alpha: f32,
     beta: f32,
-    trans_a: i32,
-    trans_b: i32,
+    trans_a: i64,
+    trans_b: i64,
 }
 
 impl GemmOp {
-    pub fn new(alpha: f32, beta: f32, trans_a: i32, trans_b: i32) -> Self {
+    pub fn new(alpha: f32, beta: f32, trans_a: i64, trans_b: i64) -> Self {
         Self {
             alpha,
             beta,
@@ -78,7 +78,7 @@ impl Compile for GemmOp {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Graph, Tensor};
+    use crate::graph::{Graph, OpType, Tensor};
 
     #[test]
     fn simple_gemm() {
@@ -91,7 +91,7 @@ mod tests {
                 vec!["X", "Y"],
                 vec!["output"],
                 "my_gemm",
-                crate::OpType::Gemm {
+                OpType::Gemm {
                     alpha: 1.,
                     beta: 1.,
                     trans_a: 0,
@@ -122,7 +122,7 @@ mod tests {
                 vec!["X", "Y"],
                 vec!["output"],
                 "my_gemm",
-                crate::OpType::Gemm {
+                OpType::Gemm {
                     alpha: 1.,
                     beta: 1.,
                     trans_a: 0,
@@ -157,7 +157,7 @@ mod tests {
                 vec!["X", "Y"],
                 vec!["output"],
                 "my_gemm",
-                crate::OpType::Gemm {
+                OpType::Gemm {
                     alpha: 1.,
                     beta: 1.,
                     trans_a: 0,
@@ -194,7 +194,7 @@ mod tests {
                 vec!["X", "Y", "bias"],
                 vec!["output"],
                 "my_gemm",
-                crate::OpType::Gemm {
+                OpType::Gemm {
                     alpha: 1.,
                     beta: 1.,
                     trans_a: 0,
@@ -226,7 +226,7 @@ mod tests {
                 vec!["X", "Y", "bias"],
                 vec!["output"],
                 "my_gemm",
-                crate::OpType::Gemm {
+                OpType::Gemm {
                     alpha: 1.,
                     beta: 1.,
                     trans_a: 0,

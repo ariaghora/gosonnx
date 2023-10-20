@@ -1,5 +1,6 @@
-use crate::{Graph, Op};
+use crate::graph::{Graph, Op};
 
+pub mod conv;
 pub mod gemm;
 
 pub trait Compile {

@@ -1,32 +1,15 @@
-use crate::{
-    onnx::{self, ModelProto, NodeProto, TensorProto},
-    Graph, Op, OpType, Tensor,
+use crate::graph::{
+    // onnx::{self, ModelProto, NodeProto, TensorProto},
+    Graph,
+    Op,
+    OpType,
+    Tensor,
 };
 use anyhow::{anyhow, Result};
 
-struct OpNode {
-    outs: Vec<String>,
-    ins: Vec<String>,
-}
+use super::onnx::ModelProto;
 
-fn get_tensor_proto<'a>(name: &str, model_proto: &'a ModelProto) -> Result<&'a TensorProto> {
-    let filtered = model_proto
-        .get_graph()
-        .get_initializer()
-        .iter()
-        .filter(|t| t.get_name() == name)
-        .collect::<Vec<&TensorProto>>();
-
-    match filtered.first().map(|t| *t) {
-        Some(v) => Ok(v),
-        None => Err(anyhow::anyhow!(format!(
-            "Tensor proto associated with `{}` not found",
-            name
-        ))),
-    }
-}
-
-pub(crate) fn parse_model_proto(model_proto: &mut onnx::ModelProto) -> Result<Graph> {
+pub(crate) fn parse_model_proto(model_proto: &mut ModelProto) -> Result<Graph> {
     // Add name to unnamed nodes
     let mut cnt = 1;
     for i in 0..model_proto.get_graph().get_node().len() {
@@ -79,12 +62,13 @@ pub(crate) fn parse_model_proto(model_proto: &mut onnx::ModelProto) -> Result<Gr
                     prevs: vec![],
                     nexts: vec![],
                 };
-                println!("Op {:#?} created!", op);
+
+                graph.op_map.insert(op.op_name.clone(), op);
             }
             Err(e) => println!("{:#?}", e),
         }
     }
     graph.compile().map_err(|e| anyhow!(e))?;
 
-    Err(anyhow::anyhow!("Error parsing model proto"))
+    Ok(graph)
 }
