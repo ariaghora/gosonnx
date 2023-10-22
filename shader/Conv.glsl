@@ -32,12 +32,13 @@ const int pads[4] = int[4] ({{pads}});
 const int strides[2] = int[2] ({{strides}});
 const int output_channels = {{output_channels}};
 
-
 layout(local_size_x = 16, local_size_y = 16, local_size_z=1) in;
 void main() {
     uint global_x = gl_GlobalInvocationID.x;
     uint global_y = gl_GlobalInvocationID.y;
     uint global_z = gl_GlobalInvocationID.z;
+    uint batch = global_z / output_channels;
+    uint channel = global_z % output_channels;
 
     {{Y_type}} result = 0.0;
     for(int c = 0; c < in_dim[1]; c++) {
@@ -47,16 +48,15 @@ void main() {
                 int wIndex = int(global_x) * strides[1] - pads[1] + kw * dilations[1];
 
                 if(hIndex >= 0 && hIndex < in_dim[2] && wIndex >= 0 && wIndex < in_dim[3]) {
-                    {{X_type}} inputValue = X[((global_z * in_dim[1] + c) * in_dim[2] + hIndex) * in_dim[3] + wIndex];
-                    {{W_type}} weightValue = W[((global_z * in_dim[1] + c) * kernel_shape[0] + kh) * kernel_shape[1] + kw];
+                    {{X_type}} inputValue = X[((batch * in_dim[1] + c) * in_dim[2] + hIndex) * in_dim[3] + wIndex];
+                    {{W_type}} weightValue = W[((channel * in_dim[1] + c) * kernel_shape[0] + kh) * kernel_shape[1] + kw];
                     result += inputValue * weightValue;
                 }
             }
         }
     }
     {% if use_bias %}
-    result += B[global_z];
+    result += B[channel];
     {% endif %}
- 
-    Y[(global_z * out_dim[2] + global_y) * out_dim[3] + global_x] = result;
+    Y[((batch * output_channels + channel) * out_dim[2] + global_y) * out_dim[3] + global_x] = result;
 }

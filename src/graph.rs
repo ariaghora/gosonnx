@@ -94,7 +94,13 @@ pub enum OpType {
         trans_a: i64,
         trans_b: i64,
     },
-    MaxPool,
+    MaxPool {
+        ceil_mode: i64,
+        // dilations: Vec<i64>,
+        kernel_shape: Vec<i64>,
+        pads: Vec<i64>,
+        strides: Vec<i64>,
+    },
     Relu,
     Unknown,
 
@@ -118,7 +124,15 @@ impl OpType {
                 trans_b: get_attr_i(node_proto, "transB").unwrap(),
             }),
             "Flatten" => Ok(Self::Flatten),
-            "MaxPool" => Ok(Self::MaxPool),
+            "MaxPool" => {
+                Ok(Self::MaxPool {
+                    ceil_mode: get_attr_i(node_proto, "ceil_mode").unwrap(),
+                    // dilations: get_attr_ints(node_proto, "dilations").unwrap(),
+                    kernel_shape: get_attr_ints(node_proto, "kernel_shape").unwrap(),
+                    pads: get_attr_ints(node_proto, "pads").unwrap(),
+                    strides: get_attr_ints(node_proto, "strides").unwrap(),
+                })
+            }
             "Relu" => Ok(Self::Relu),
             _ => Err(format!(
                 "ONNX op type {} is not supported yet",
@@ -134,7 +148,7 @@ impl fmt::Display for OpType {
             OpType::Conv { .. } => write!(f, "Conv"),
             OpType::Flatten => write!(f, "Flatten"),
             OpType::Gemm { .. } => write!(f, "Gemm"),
-            OpType::MaxPool => write!(f, "MaxPool"),
+            OpType::MaxPool { .. } => write!(f, "MaxPool"),
             OpType::Relu => write!(f, "Relu"),
             OpType::Unknown => write!(f, "Unknown"),
             OpType::Double => write!(f, "Double"),

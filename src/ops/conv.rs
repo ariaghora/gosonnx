@@ -1,6 +1,6 @@
 use crate::graph::{Graph, Op};
 
-use super::Compile;
+use super::{to_csv_str, Compile};
 
 pub struct ConvOp {
     dilations: Vec<i64>,
@@ -26,11 +26,6 @@ impl ConvOp {
             strides,
         }
     }
-}
-
-pub fn to_csv_str<T: ToString>(vals: &Vec<T>) -> String {
-    let res: Vec<String> = vals.iter().map(|v| v.to_string()).collect();
-    res.join(",")
 }
 
 impl Compile for ConvOp {
@@ -67,7 +62,6 @@ impl Compile for ConvOp {
         }
 
         let compiled = tera.render("Conv", &context).map_err(|e| e.to_string())?;
-        println!("COMPILED {}", compiled);
         Ok(compiled)
     }
 }

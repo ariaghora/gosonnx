@@ -2,6 +2,7 @@ use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 
 use crate::graph::{Graph, Op, OpType, Tensor};
 use crate::ops::conv::ConvOp;
+use crate::ops::maxpool::MaxPoolOp;
 use crate::ops::{gemm::GemmOp, Compile};
 use include_dir::{include_dir, Dir};
 use naga::FastHashMap;
@@ -155,8 +156,25 @@ impl GPUExecutor {
                     let wg = &[64, 64, 1];
                     self.execute_pass(&compiled, &device, &mut encoder, op, wg)?
                 }
-                OpType::Flatten => {}
-                OpType::MaxPool => {}
+                OpType::Flatten => {
+                    todo!()
+                }
+                OpType::MaxPool {
+                    ceil_mode,
+                    // dilations,
+                    kernel_shape,
+                    pads,
+                    strides,
+                } => {
+                    let compiled = MaxPoolOp::new(
+                        *ceil_mode,
+                        kernel_shape.clone(),
+                        pads.clone(),
+                        strides.clone(),
+                    )
+                    .compile(op, shader_source, graph)?;
+                    self.execute_pass(&compiled, &device, &mut encoder, op, &[64, 64, 1])?;
+                }
                 // Simple Op pass can be just executed.
                 // - 1 input & 1 output buffer
                 // - Input length = output length
