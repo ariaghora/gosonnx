@@ -137,9 +137,26 @@ impl GPUExecutor {
                     let wg = &[64, 64, 1];
                     self.execute_pass(&compiled, &device, &mut encoder, op, wg)?
                 }
-                OpType::Conv { dilations } => {
-                    let _conv = ConvOp::new(dilations.clone());
+                OpType::Conv {
+                    dilations,
+                    group,
+                    kernel_shape,
+                    pads,
+                    strides,
+                } => {
+                    let compiled = ConvOp::new(
+                        dilations.clone(),
+                        *group,
+                        kernel_shape.clone(),
+                        pads.clone(),
+                        strides.clone(),
+                    )
+                    .compile(op, shader_source, graph)?;
+                    let wg = &[64, 64, 1];
+                    self.execute_pass(&compiled, &device, &mut encoder, op, wg)?
                 }
+                OpType::Flatten => {}
+                OpType::MaxPool => {}
                 // Simple Op pass can be just executed.
                 // - 1 input & 1 output buffer
                 // - Input length = output length
@@ -217,7 +234,7 @@ impl GPUExecutor {
         op: &Op,
         num_work_groups: &[u32],
     ) -> Result<(), String> {
-        let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(shader_source),
@@ -225,12 +242,27 @@ impl GPUExecutor {
                 defines: FastHashMap::default(),
             },
         });
-        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: None,
-            layout: None,
-            module: &module,
-            entry_point: "main",
+
+        let mut bindgroup_layout_entries: Vec<wgpu::BindGroupLayoutEntry> = vec![];
+        let mut cnt = 0;
+        for _ in 0..&op.inputs.len() + &op.outputs.len() {
+            bindgroup_layout_entries.push(wgpu::BindGroupLayoutEntry {
+                binding: cnt,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: false },
+                    has_dynamic_offset: false,
+                    min_binding_size: wgpu::BufferSize::new(4),
+                },
+                count: None,
+            });
+            cnt += 1;
+        }
+        let bindgroup_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some(&format!("bindgroup_layout_{}", op.op_type)),
+            entries: bindgroup_layout_entries.as_slice(),
         });
+
         let mut bindgroup_entries: Vec<wgpu::BindGroupEntry> = vec![];
         let mut cnt = 0;
         for input in &op.inputs {
@@ -247,9 +279,21 @@ impl GPUExecutor {
             });
             cnt += 1;
         }
-        let bindgroup_layout = compute_pipeline.get_bind_group_layout(0);
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some(&format!("pipeline_layout_{}", op.op_type)),
+            bind_group_layouts: &[&bindgroup_layout],
+            push_constant_ranges: &[],
+        });
+        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some(&format!("compute_pipeline_{}", op.op_type)),
+            layout: Some(&pipeline_layout),
+            module: &shader_module,
+            entry_point: "main",
+        });
+
         let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: None,
+            label: Some(&format!("bindgroup_{}", op.op_type)),
             layout: &bindgroup_layout,
             entries: &bindgroup_entries.as_slice(),
         });

@@ -82,6 +82,10 @@ impl Tensor {
 pub enum OpType {
     Conv {
         dilations: Vec<i64>,
+        group: i64,
+        kernel_shape: Vec<i64>,
+        pads: Vec<i64>,
+        strides: Vec<i64>,
     },
     Flatten,
     Gemm {
@@ -102,6 +106,10 @@ impl OpType {
         match node_proto.get_op_type() {
             "Conv" => Ok(Self::Conv {
                 dilations: get_attr_ints(node_proto, "dilations").unwrap(),
+                group: get_attr_i(node_proto, "group").unwrap(),
+                kernel_shape: get_attr_ints(node_proto, "kernel_shape").unwrap(),
+                pads: get_attr_ints(node_proto, "pads").unwrap(),
+                strides: get_attr_ints(node_proto, "strides").unwrap(),
             }),
             "Gemm" => Ok(Self::Gemm {
                 alpha: get_attr_f(node_proto, "alpha").unwrap(),
@@ -284,8 +292,14 @@ mod tests {
 
     #[test]
     fn open_onnx() -> Result<(), Box<dyn Error>> {
-        let graph = Graph::open_onnx("data/models/doc_classifier_model.onnx")?;
+        let mut graph = Graph::open_onnx("data/models/doc_classifier_model.onnx")?;
+        graph.new_tensor_f32(
+            "input",
+            Some(vec![0.0; 255 * 255 * 3]),
+            vec![1, 3, 255, 255],
+        );
         assert_eq!(graph.op_map.keys().len(), 13);
+        graph.run()?;
         Ok(())
     }
 
