@@ -18,27 +18,35 @@ const int strides[2] = int[2] ({{strides}});
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z=1) in;
 void main() {
-    uint global_x = gl_GlobalInvocationID.x;
-    uint global_y = gl_GlobalInvocationID.y;
-    uint global_z = gl_GlobalInvocationID.z;
+int n = int(gl_GlobalInvocationID.x / (out_dim[1] * out_dim[2] * out_dim[3]));
+    int c = int((gl_GlobalInvocationID.x % (out_dim[1] * out_dim[2] * out_dim[3])) / (out_dim[2] * out_dim[3]));
+    int h = int((gl_GlobalInvocationID.x % (out_dim[2] * out_dim[3])) / out_dim[3]);
+    int w = int(gl_GlobalInvocationID.x % out_dim[3]);
 
-    uint N = int(global_z / out_dim[1]); // Calculate batch index
-    uint C = global_z % out_dim[1]; // Calculate channel index
+    if (h < out_dim[2] && w < out_dim[3]) {
+        int out_idx = n * out_dim[1] * out_dim[2] * out_dim[3] + c * out_dim[2] * out_dim[3] + h * out_dim[3] + w;
+        {{X_type}} max_val = -1.0/0.0; // Negative infinity
 
-    {{Y_type}} max_val = -1.0e10; // Starting with a very low value
+        for (int i = 0; i < kernel_shape[0]; i++) {
+            for (int j = 0; j < kernel_shape[1]; j++) {
+                int h_in;
+                int w_in;
 
-    // Iterate over the pooling window in the input tensor
-    for(int kh = 0; kh < kernel_shape[0]; kh++) {
-        for(int kw = 0; kw < kernel_shape[1]; kw++) {
-            int hIndex = int(global_y) * strides[0] - pads[0] + kh;
-            int wIndex = int(global_x) * strides[1] - pads[1] + kw;
+                if (ceil_mode == 1) {
+                    h_in = int(ceil(float(h) * strides[0] - pads[0] + i));
+                    w_in = int(ceil(float(w) * strides[1] - pads[1] + j));
+                } else {
+                    h_in = h * strides[0] - pads[0] + i;
+                    w_in = w * strides[1] - pads[1] + j;
+                }
 
-            if(hIndex >= 0 && hIndex < in_dim[2] && wIndex >= 0 && wIndex < in_dim[3]) {
-                {{X_type}} inputValue = X[((N * in_dim[1] + C) * in_dim[2] + hIndex) * in_dim[3] + wIndex];
-                max_val = max(max_val, inputValue);
+                if (h_in >= 0 && h_in < in_dim[2] && w_in >= 0 && w_in < in_dim[3]) {
+                    int in_idx = n * in_dim[1] * in_dim[2] * in_dim[3] + c * in_dim[2] * in_dim[3] + h_in * in_dim[3] + w_in;
+                    max_val = max(max_val, X[in_idx]);
+                }
             }
         }
-    }
 
-    Y[(global_z * out_dim[2] + global_y) * out_dim[3] + global_x] = max_val;
+        Y[out_idx] = max_val;
+    }
 }

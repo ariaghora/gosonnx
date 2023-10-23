@@ -1,4 +1,7 @@
-use crate::ops::to_csv_str;
+use crate::{
+    graph::{Graph, Op},
+    ops::to_csv_str,
+};
 
 use super::Compile;
 
@@ -17,6 +20,24 @@ impl MaxPoolOp {
             pads,
             strides,
         }
+    }
+
+    pub fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {
+        let output_dims = &graph.tensor_map[&op.outputs[0]].shape();
+        let local_size_x = 16;
+        let local_size_y = 16;
+        let local_size_z = 1; // Each z dimension represents a batch * channel
+
+        // Number of workgroups in each dimension
+        let num_workgroups_x = (output_dims[3] + local_size_x - 1) / local_size_x;
+        let num_workgroups_y = (output_dims[2] + local_size_y - 1) / local_size_y;
+        let num_workgroups_z = (output_dims[0] * output_dims[1] + local_size_z - 1) / local_size_z;
+
+        [
+            num_workgroups_x as u32,
+            num_workgroups_y as u32,
+            num_workgroups_z as u32,
+        ]
     }
 }
 
@@ -51,5 +72,42 @@ impl Compile for MaxPoolOp {
             .map_err(|e| e.to_string())?;
 
         Ok(compiled)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::graph::{Graph, OpType, Tensor};
+
+    #[test]
+    fn simple_pool() {
+        let mut graph = Graph::new();
+        graph.new_tensor_f32(
+            "X",
+            Some(vec![
+                1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0,
+                -7.0, -8.0, -9.0,
+            ]),
+            vec![1, 2, 3, 3],
+        );
+        graph.new_tensor_f32("Y", None, vec![1, 2, 1, 1]);
+        graph
+            .new_op(
+                vec!["X"],
+                vec!["Y"],
+                "my_maxpool",
+                OpType::MaxPool {
+                    ceil_mode: 0,
+                    kernel_shape: vec![2, 2],
+                    pads: vec![0, 0, 0, 0],
+                    strides: vec![1, 1],
+                },
+            )
+            .unwrap();
+        graph.run().unwrap();
+        let out = graph.get_output("Y").unwrap();
+        if let Tensor::F32 { values, .. } = out {
+            assert_eq!(values, &Some(vec![5.0, -1.0]));
+        }
     }
 }

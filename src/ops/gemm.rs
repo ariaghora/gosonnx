@@ -18,6 +18,18 @@ impl GemmOp {
             trans_b,
         }
     }
+    pub fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> (u32, u32) {
+        let out = &graph.tensor_map[&op.outputs[0]];
+        let (m, n) = (out.shape()[0], out.shape()[1]);
+        let local_size_x = 16;
+        let local_size_y = 16;
+
+        // Number of workgroups in each dimension
+        let num_workgroups_x = (n + local_size_x - 1) / local_size_x;
+        let num_workgroups_y = (m + local_size_y - 1) / local_size_y;
+
+        (num_workgroups_x as u32, num_workgroups_y as u32)
+    }
 }
 
 impl Compile for GemmOp {

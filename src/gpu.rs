@@ -131,13 +131,10 @@ impl GPUExecutor {
                     trans_a,
                     trans_b,
                 } => {
-                    let compiled = GemmOp::new(*alpha, *beta, *trans_a, *trans_b).compile(
-                        op,
-                        shader_source,
-                        graph,
-                    )?;
-                    let wg = &[32, 32, 1];
-                    self.execute_pass(&compiled, &device, &mut encoder, op, wg)?
+                    let gemm_op = GemmOp::new(*alpha, *beta, *trans_a, *trans_b);
+                    let compiled = gemm_op.compile(op, shader_source, graph)?;
+                    let (x, y) = gemm_op.compute_workgroup_size(op, graph);
+                    self.execute_pass(&compiled, &device, &mut encoder, op, &[x, y, 1])?
                 }
                 OpType::Conv {
                     dilations,
@@ -168,14 +165,15 @@ impl GPUExecutor {
                     pads,
                     strides,
                 } => {
-                    let compiled = MaxPoolOp::new(
+                    let maxpool_op = MaxPoolOp::new(
                         *ceil_mode,
                         kernel_shape.clone(),
                         pads.clone(),
                         strides.clone(),
-                    )
-                    .compile(op, shader_source, graph)?;
-                    self.execute_pass(&compiled, &device, &mut encoder, op, &[64, 64, 1])?;
+                    );
+                    let wg = maxpool_op.compute_workgroup_size(op, graph);
+                    let compiled = maxpool_op.compile(op, shader_source, graph)?;
+                    self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?;
                 }
                 // Simple Op pass can be just executed.
                 // - 1 input & 1 output buffer
