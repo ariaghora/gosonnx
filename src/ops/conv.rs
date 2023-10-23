@@ -127,4 +127,90 @@ mod test {
             assert_eq!(values, &Some(vec![3.0, 3.0, 3.0, 3.0, 1.0, 1.0, 1.0, 1.0]));
         }
     }
+
+    #[test]
+    fn conv_without_bias() {
+        let mut graph = Graph::new();
+        graph.new_tensor_f32(
+            "X",
+            Some(vec![
+                1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0,
+                -7.0, -8.0, -9.0,
+            ]),
+            vec![1, 2, 3, 3],
+        );
+        graph.new_tensor_f32(
+            "W",
+            Some(vec![
+                0.0, 1.0, -1.0, 0.0, 1.0, 0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 1.0, 0.0, -1.0, 1.0, 0.0,
+            ]),
+            vec![2, 2, 2, 2],
+        );
+        graph.new_tensor_f32("Y", None, vec![1, 2, 2, 2]);
+        graph
+            .new_op(
+                vec!["X", "W"],
+                vec!["Y"],
+                "my_conv",
+                OpType::Conv {
+                    dilations: vec![1, 1],
+                    group: 1,
+                    kernel_shape: vec![2, 2],
+                    pads: vec![0, 0, 0, 0],
+                    strides: vec![1, 1],
+                },
+            )
+            .unwrap();
+        graph.run().unwrap();
+        let out = graph.get_output("Y").unwrap();
+        if let Tensor::F32 { values, .. } = out {
+            assert_eq!(values, &Some(vec![2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]));
+        }
+    }
+
+    #[test]
+    fn conv_larger_bias() {
+        let mut graph = Graph::new();
+        graph.new_tensor_f32(
+            "X",
+            Some(vec![
+                0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0,
+                15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0, 26.0,
+            ]),
+            vec![1, 3, 3, 3],
+        );
+        graph.new_tensor_f32(
+            "W",
+            Some(vec![
+                0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0,
+                15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0,
+            ]),
+            vec![2, 3, 2, 2],
+        );
+        graph.new_tensor_f32("Y", None, vec![1, 2, 2, 2]);
+        graph
+            .new_op(
+                vec!["X", "W"],
+                vec!["Y"],
+                "my_conv",
+                OpType::Conv {
+                    dilations: vec![1, 1],
+                    group: 1,
+                    kernel_shape: vec![2, 2],
+                    pads: vec![0, 0, 0, 0],
+                    strides: vec![1, 1],
+                },
+            )
+            .unwrap();
+        graph.run().unwrap();
+        let out = graph.get_output("Y").unwrap();
+        if let Tensor::F32 { values, .. } = out {
+            assert_eq!(
+                values,
+                &Some(vec![
+                    1035.0, 1101.0, 1233.0, 1299.0, 2619.0, 2829.0, 3249.0, 3459.0
+                ])
+            );
+        }
+    }
 }
