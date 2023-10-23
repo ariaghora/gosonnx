@@ -7,7 +7,7 @@ layout(set = 0, binding = 1) buffer Output {
     float output[];
 };
 
-layout(local_size_x = 16) in;
+layout(local_size_x = 256) in;
 void main() {
     uint idx = gl_GlobalInvocationID.x;
     float val = input[idx];

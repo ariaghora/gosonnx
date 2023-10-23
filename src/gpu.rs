@@ -2,6 +2,7 @@ use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 
 use crate::graph::{Graph, Op, OpType, Tensor};
 use crate::ops::conv::ConvOp;
+use crate::ops::flatten::FlattenOp;
 use crate::ops::maxpool::MaxPoolOp;
 use crate::ops::{gemm::GemmOp, Compile};
 use include_dir::{include_dir, Dir};
@@ -156,8 +157,9 @@ impl GPUExecutor {
                     let wg = &[64, 64, 1];
                     self.execute_pass(&compiled, &device, &mut encoder, op, wg)?
                 }
-                OpType::Flatten => {
-                    todo!()
+                OpType::Flatten { axis } => {
+                    let compiled = FlattenOp::new(*axis).compile(op, shader_source, graph)?;
+                    self.execute_pass(&compiled, &device, &mut encoder, op, &[64, 64, 1])?;
                 }
                 OpType::MaxPool {
                     ceil_mode,

@@ -87,7 +87,9 @@ pub enum OpType {
         pads: Vec<i64>,
         strides: Vec<i64>,
     },
-    Flatten,
+    Flatten {
+        axis: i64,
+    },
     Gemm {
         alpha: f32,
         beta: f32,
@@ -123,7 +125,9 @@ impl OpType {
                 trans_a: get_attr_i(node_proto, "transA").unwrap(),
                 trans_b: get_attr_i(node_proto, "transB").unwrap(),
             }),
-            "Flatten" => Ok(Self::Flatten),
+            "Flatten" => Ok(Self::Flatten {
+                axis: get_attr_i(node_proto, "axis").unwrap(),
+            }),
             "MaxPool" => {
                 Ok(Self::MaxPool {
                     ceil_mode: get_attr_i(node_proto, "ceil_mode").unwrap(),
@@ -146,7 +150,7 @@ impl fmt::Display for OpType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             OpType::Conv { .. } => write!(f, "Conv"),
-            OpType::Flatten => write!(f, "Flatten"),
+            OpType::Flatten { .. } => write!(f, "Flatten"),
             OpType::Gemm { .. } => write!(f, "Gemm"),
             OpType::MaxPool { .. } => write!(f, "MaxPool"),
             OpType::Relu => write!(f, "Relu"),
