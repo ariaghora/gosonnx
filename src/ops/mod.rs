@@ -4,6 +4,7 @@ pub mod conv;
 pub mod flatten;
 pub mod gemm;
 pub mod maxpool;
+pub mod relu;
 
 pub trait Compile {
     fn compile(&self, op: &Op, shader_source: &str, graph: &Graph) -> Result<String, String>;

@@ -1,4 +1,7 @@
-use crate::ops::to_csv_str;
+use crate::{
+    graph::{Graph, Op},
+    ops::to_csv_str,
+};
 
 use super::Compile;
 
@@ -9,6 +12,22 @@ pub struct FlattenOp {
 impl FlattenOp {
     pub fn new(axis: i64) -> Self {
         Self { axis }
+    }
+    pub fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {
+        let output_dims = &graph.tensor_map[&op.outputs[0]].shape();
+        let local_size_x = 32;
+        let local_size_y = 8;
+
+        // Number of workgroups in each dimension
+        let num_workgroups_x = (output_dims[1] + local_size_x - 1) / local_size_x;
+        let num_workgroups_y = (output_dims[0] + local_size_y - 1) / local_size_y;
+        let num_workgroups_z = 1; // Since the output tensor is 2D, the z-dimension is always 1.
+
+        [
+            num_workgroups_x as u32,
+            num_workgroups_y as u32,
+            num_workgroups_z as u32,
+        ]
     }
 }
 
@@ -44,5 +63,70 @@ impl Compile for FlattenOp {
             .map_err(|e| e.to_string())?;
 
         Ok(compiled)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::graph::{Graph, OpType, Tensor};
+
+    #[test]
+    fn simple_flatten() {
+        let mut graph = Graph::new();
+        graph.new_tensor_f32(
+            "X",
+            Some(vec![
+                1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0,
+                -7.0, -8.0, -9.0,
+            ]),
+            vec![1, 2, 3, 3],
+        );
+        graph.new_tensor_f32("Y", None, vec![1, 18]);
+        graph
+            .new_op(vec!["X"], vec!["Y"], "flatten", OpType::Flatten { axis: 1 })
+            .unwrap();
+        graph.run().unwrap();
+        let out = graph.get_output("Y").unwrap();
+        if let Tensor::F32 { values, .. } = out {
+            assert_eq!(
+                values,
+                &Some(vec![
+                    1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, -1.0, -2.0, -3.0, -4.0, -5.0,
+                    -6.0, -7.0, -8.0, -9.0
+                ])
+            );
+        }
+    }
+
+    #[test]
+    fn simple_flatten_relu() {
+        let mut graph = Graph::new();
+        graph.new_tensor_f32(
+            "X",
+            Some(vec![
+                1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0,
+                -7.0, -8.0, -9.0,
+            ]),
+            vec![1, 2, 3, 3],
+        );
+        graph.new_tensor_f32("Y", None, vec![1, 18]);
+        graph.new_tensor_f32("Z", None, vec![1, 18]);
+        graph
+            .new_op(vec!["X"], vec!["Y"], "flatten", OpType::Flatten { axis: 1 })
+            .unwrap();
+        graph
+            .new_op(vec!["Y"], vec!["Z"], "relu", OpType::Relu)
+            .unwrap();
+        graph.run().unwrap();
+        let out = graph.get_output("Z").unwrap();
+        if let Tensor::F32 { values, .. } = out {
+            assert_eq!(
+                values,
+                &Some(vec![
+                    1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0
+                ])
+            );
+        }
     }
 }

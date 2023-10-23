@@ -105,8 +105,6 @@ pub enum OpType {
     },
     Relu,
     Unknown,
-
-    Double, //Dummy. TODO: remove
 }
 
 impl OpType {
@@ -155,7 +153,6 @@ impl fmt::Display for OpType {
             OpType::MaxPool { .. } => write!(f, "MaxPool"),
             OpType::Relu => write!(f, "Relu"),
             OpType::Unknown => write!(f, "Unknown"),
-            OpType::Double => write!(f, "Double"),
         }
     }
 }
@@ -275,7 +272,10 @@ impl Graph {
         self.output_tensor_map.get(arg)
     }
 
-    pub fn set_input(&mut self, name: &str, tensor: Tensor) {
+    pub fn set_tensor(&mut self, name: &str, tensor: Tensor) {
+        let old_in = &self.tensor_map[name];
+        assert_eq!(old_in.shape(), tensor.shape());
+
         self.tensor_map.insert(name.into(), tensor);
     }
 }
@@ -322,61 +322,6 @@ mod tests {
         );
         assert_eq!(graph.op_map.keys().len(), 13);
         graph.run()?;
-        Ok(())
-    }
-
-    #[test]
-    fn simple_relu() -> Result<(), Box<dyn Error>> {
-        let mut graph = Graph::new();
-        graph.new_tensor_f32("X", Some(vec![0.5, -1.0, 2.0]), vec![1, 3]);
-        graph.new_tensor_f32("Y", None, vec![1, 3]);
-        graph
-            .new_op(vec!["X"], vec!["Y"], "my_relu_1", OpType::Relu)
-            .unwrap();
-
-        graph.run()?;
-        if let Some(result) = graph.get_output("Y") {
-            if let Tensor::F32 { values, shape } = result {
-                assert_eq!(values, &Some(vec![0.5, 0.0, 2.0]));
-                assert_eq!(shape, &vec![1, 3]);
-            } else {
-                panic!("Output should be Tensor::F32")
-            }
-        } else {
-            panic!("Output Y not found")
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn multi_module() -> Result<(), Box<dyn Error>> {
-        let mut graph = Graph::new();
-        graph.new_tensor_f32("X", Some(vec![0.5, -1.0, 2.0]), vec![1, 3]);
-        graph.new_tensor_f32("Y", None, vec![1, 3]);
-        graph.new_tensor_f32("Z", None, vec![1, 3]);
-        graph.new_tensor_f32("final".into(), None, vec![1, 3]);
-        graph
-            .new_op(vec!["X"], vec!["Y"], "my_relu", OpType::Relu)
-            .unwrap();
-        graph
-            .new_op(vec!["Y"], vec!["Z"], "my_double", OpType::Double)
-            .unwrap();
-        graph
-            .new_op(vec!["Z"], vec!["final"], "my_double2", OpType::Double)
-            .unwrap();
-        graph.run()?;
-
-        if let Some(result) = graph.get_output("final") {
-            if let Tensor::F32 { values, shape } = result {
-                assert_eq!(values, &Some(vec![2.0, 0.0, 8.0]));
-                assert_eq!(shape, &vec![1, 3]);
-            } else {
-                panic!("Output should be Tensor::F32")
-            }
-        } else {
-            panic!("Output not found")
-        }
         Ok(())
     }
 }

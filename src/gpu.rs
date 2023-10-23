@@ -155,12 +155,13 @@ impl GPUExecutor {
                     self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?
                 }
                 OpType::Flatten { axis } => {
-                    let compiled = FlattenOp::new(*axis).compile(op, shader_source, graph)?;
-                    self.execute_pass(&compiled, &device, &mut encoder, op, &[64, 64, 1])?;
+                    let flatten_op = FlattenOp::new(*axis);
+                    let compiled = flatten_op.compile(op, shader_source, graph)?;
+                    let wg = flatten_op.compute_workgroup_size(op, graph);
+                    self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?;
                 }
                 OpType::MaxPool {
                     ceil_mode,
-                    // dilations,
                     kernel_shape,
                     pads,
                     strides,
@@ -179,8 +180,11 @@ impl GPUExecutor {
                 // - 1 input & 1 output buffer
                 // - Input length = output length
                 // - input type = output type
-                OpType::Relu | OpType::Double => {
-                    let wg = &[1024, 1, 1];
+                OpType::Relu => {
+                    let local_size_x = 256;
+                    let numel = tensor_len(&graph.tensor_map[&op.inputs[0]]).unwrap();
+                    let num_workgroups_x = (numel + local_size_x - 1) / local_size_x;
+                    let wg = &[num_workgroups_x as u32, 1, 1];
                     self.execute_pass(shader_source, &device, &mut encoder, op, wg)?
                 }
 

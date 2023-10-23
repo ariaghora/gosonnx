@@ -18,7 +18,7 @@ const int strides[2] = int[2] ({{strides}});
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z=1) in;
 void main() {
-int n = int(gl_GlobalInvocationID.x / (out_dim[1] * out_dim[2] * out_dim[3]));
+    int n = int(gl_GlobalInvocationID.x / (out_dim[1] * out_dim[2] * out_dim[3]));
     int c = int((gl_GlobalInvocationID.x % (out_dim[1] * out_dim[2] * out_dim[3])) / (out_dim[2] * out_dim[3]));
     int h = int((gl_GlobalInvocationID.x % (out_dim[2] * out_dim[3])) / out_dim[3]);
     int w = int(gl_GlobalInvocationID.x % out_dim[3]);
