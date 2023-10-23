@@ -42,7 +42,6 @@ impl Compile for FlattenOp {
         let compiled = tera
             .render("Flatten", &mut context)
             .map_err(|e| e.to_string())?;
-        println!("COMPILED FLATTEN\n{}", compiled);
 
         Ok(compiled)
     }

@@ -136,7 +136,7 @@ impl GPUExecutor {
                         shader_source,
                         graph,
                     )?;
-                    let wg = &[64, 64, 1];
+                    let wg = &[32, 32, 1];
                     self.execute_pass(&compiled, &device, &mut encoder, op, wg)?
                 }
                 OpType::Conv {
@@ -146,16 +146,16 @@ impl GPUExecutor {
                     pads,
                     strides,
                 } => {
-                    let compiled = ConvOp::new(
+                    let conv_op = ConvOp::new(
                         dilations.clone(),
                         *group,
                         kernel_shape.clone(),
                         pads.clone(),
                         strides.clone(),
-                    )
-                    .compile(op, shader_source, graph)?;
-                    let wg = &[64, 64, 1];
-                    self.execute_pass(&compiled, &device, &mut encoder, op, wg)?
+                    );
+                    let compiled = conv_op.compile(op, shader_source, graph)?;
+                    let wg = conv_op.compute_workgroup_size(op, graph);
+                    self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?
                 }
                 OpType::Flatten { axis } => {
                     let compiled = FlattenOp::new(*axis).compile(op, shader_source, graph)?;
@@ -254,12 +254,14 @@ impl GPUExecutor {
         op: &Op,
         num_work_groups: &[u32],
     ) -> Result<(), String> {
+        let mut defines = FastHashMap::default();
+        defines.insert("GL_EXT_debug_printf".into(), "enable".into());
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(shader_source),
                 stage: naga::ShaderStage::Compute,
-                defines: FastHashMap::default(),
+                defines: defines,
             },
         });
 

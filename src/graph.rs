@@ -185,8 +185,8 @@ impl Op {
 
 pub struct Graph {
     pub(crate) executor: Option<RefCell<GPUExecutor>>,
-    pub(crate) tensor_map: HashMap<String, Tensor>,
-    pub(crate) op_map: HashMap<String, Op>,
+    pub tensor_map: HashMap<String, Tensor>,
+    pub op_map: HashMap<String, Op>,
     pub(crate) output_tensor_map: HashMap<String, Tensor>,
 }
 
@@ -273,6 +273,10 @@ impl Graph {
 
     pub fn get_output(&self, arg: &str) -> Option<&Tensor> {
         self.output_tensor_map.get(arg)
+    }
+
+    pub fn set_input(&mut self, name: &str, tensor: Tensor) {
+        self.tensor_map.insert(name.into(), tensor);
     }
 }
 
