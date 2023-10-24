@@ -159,12 +159,12 @@ impl fmt::Display for OpType {
 
 #[derive(Debug)]
 pub struct Op {
-    pub(crate) op_type: OpType,
-    pub(crate) op_name: String,
-    pub(crate) prevs: Vec<String>,
-    pub(crate) nexts: Vec<String>,
-    pub(crate) inputs: Vec<String>,
-    pub(crate) outputs: Vec<String>,
+    pub op_type: OpType,
+    pub op_name: String,
+    pub prevs: Vec<String>,
+    pub nexts: Vec<String>,
+    pub inputs: Vec<String>,
+    pub outputs: Vec<String>,
 }
 
 impl Op {
@@ -184,7 +184,7 @@ pub struct Graph {
     pub(crate) executor: Option<RefCell<GPUExecutor>>,
     pub tensor_map: HashMap<String, Tensor>,
     pub op_map: HashMap<String, Op>,
-    pub(crate) output_tensor_map: HashMap<String, Tensor>,
+    pub output_tensor_map: HashMap<String, Tensor>,
 }
 
 impl Graph {

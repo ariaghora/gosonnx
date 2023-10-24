@@ -24,20 +24,22 @@ impl MaxPoolOp {
 
     pub fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {
         let output_dims = &graph.tensor_map[&op.outputs[0]].shape();
-        let local_size_x = 16;
-        let local_size_y = 16;
-        let local_size_z = 1; // Each z dimension represents a batch * channel
+        let local_size_x_y = 16;
 
-        // Number of workgroups in each dimension
-        let num_workgroups_x = (output_dims[3] + local_size_x - 1) / local_size_x;
-        let num_workgroups_y = (output_dims[2] + local_size_y - 1) / local_size_y;
-        let num_workgroups_z = (output_dims[0] * output_dims[1] + local_size_z - 1) / local_size_z;
+        // Calculate total number of threads needed in the output
+        let num_threads = output_dims[0] * output_dims[1] * output_dims[2] * output_dims[3];
 
-        [
-            num_workgroups_x as u32,
-            num_workgroups_y as u32,
-            num_workgroups_z as u32,
-        ]
+        // Threads per workgroup
+        let threads_per_workgroup = local_size_x_y * local_size_x_y;
+
+        // Calculate total number of workgroups needed
+        let num_workgroups = (num_threads + threads_per_workgroup - 1) / threads_per_workgroup;
+
+        // Distribute workgroups evenly across two dimensions
+        let workgroup_size_x = (num_workgroups as f64).sqrt().ceil() as i64;
+        let workgroup_size_y = (num_workgroups + workgroup_size_x - 1) / workgroup_size_x;
+
+        [workgroup_size_x as u32, workgroup_size_y as u32, 1]
     }
 }
 

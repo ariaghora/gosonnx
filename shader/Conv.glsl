@@ -32,38 +32,46 @@ const int pads[4] = int[4] ({{pads}});
 const int strides[2] = int[2] ({{strides}});
 const int output_channels = {{output_channels}};
 
-layout(local_size_x = 256, local_size_y = 1, local_size_z=1) in;
+int get_input_pos(int n, int x, int y, int c) {
+    return n * in_dim[1] * in_dim[2] * in_dim[3] + c * in_dim[2] * in_dim[3] + y * in_dim[3] + x;
+}
+
+int get_output_pos(int n, int x, int y, int c) {
+    return n * out_dim[1] * out_dim[2] * out_dim[3] + c * out_dim[2] * out_dim[3] + y * out_dim[3] + x;
+}
+
+int get_kernel_pos(int x, int y, int ic, int oc) {
+    return oc * in_dim[1] * kernel_shape[0] * kernel_shape[1] + ic * kernel_shape[0] * kernel_shape[1] + y * kernel_shape[1] + x;
+}
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z=1) in;
 void main() {
-int n = int(gl_GlobalInvocationID.x / (out_dim[1] * out_dim[2] * out_dim[3]));
-    int c = int((gl_GlobalInvocationID.x % (out_dim[1] * out_dim[2] * out_dim[3])) / (out_dim[2] * out_dim[3]));
-    int h = int((gl_GlobalInvocationID.x % (out_dim[2] * out_dim[3])) / out_dim[3]);
-    int w = int(gl_GlobalInvocationID.x % out_dim[3]);
+    int global_x = int(gl_GlobalInvocationID.x);
+    int global_y = int(gl_GlobalInvocationID.y);
+    int global_z = int(gl_GlobalInvocationID.z);
+    int output_height = (in_dim[2] + 2 * pads[0] - kernel_shape[0]) / strides[0] + 1;
+    int output_width = (in_dim[3] + 2 * pads[1] - kernel_shape[1]) / strides[1] + 1;
 
-    if (h < out_dim[2] && w < out_dim[3]) {
-        int out_idx = n * out_dim[1] * out_dim[2] * out_dim[3] + c * out_dim[2] * out_dim[3] + h * out_dim[3] + w;
-        {% if use_bias %}
-        Y[out_idx] = B[c];
-        {% else %}
-        Y[out_idx] = 0.0;
-        {% endif %}
+    if (global_x < output_width && global_y < output_height && global_z < out_dim[0]) {
+        for (int oc = 0; oc < output_channels; oc++) {
+            int out_idx = get_output_pos(global_z, global_x, global_y, oc);
+            {% if use_bias %}
+            Y[out_idx] = B[oc];
+            {% else %}
+            Y[out_idx] = 0.0;
+            {% endif %}
 
-        int input_channels_per_group = in_dim[1] / group;
-        int output_channels_per_group = output_channels / group;
+            for (int ic = 0; ic < in_dim[1]; ic++) {
+                for (int ky = 0; ky < kernel_shape[0]; ky++) {
+                    for (int kx = 0; kx < kernel_shape[1]; kx++) {
+                        int in_x = global_x * strides[0] - pads[0] + kx;
+                        int in_y = global_y * strides[1] - pads[1] + ky;
 
-        int group_idx = c / output_channels_per_group;
-        int offset_within_group = c % output_channels_per_group;
-
-        for (int i = 0; i < kernel_shape[0]; i++) {
-            for (int j = 0; j < kernel_shape[1]; j++) {
-                for (int k = 0; k < input_channels_per_group; k++) {
-                    int h_in = h * strides[0] - pads[0] + i;
-                    int w_in = w * strides[1] - pads[1] + j;
-
-                    if (h_in >= 0 && h_in < in_dim[2] && w_in >= 0 && w_in < in_dim[3]) {
-                        int in_idx = n * in_dim[1] * in_dim[2] * in_dim[3] + (group_idx * input_channels_per_group + k) * in_dim[2] * in_dim[3] + h_in * in_dim[3] + w_in;
-                        int k_idx = (group_idx * output_channels_per_group + offset_within_group) * input_channels_per_group * kernel_shape[0] * kernel_shape[1] + k * kernel_shape[0] * kernel_shape[1] + i * kernel_shape[1] + j;
-
-                        Y[out_idx] += X[in_idx] * W[k_idx];
+                        if (in_x >= 0 && in_x < in_dim[3] && in_y >= 0 && in_y < in_dim[2]) {
+                            int in_idx = get_input_pos(global_z, in_x, in_y, ic);
+                            int k_idx = get_kernel_pos(kx, ky, ic, oc);
+                            Y[out_idx] += X[in_idx] * W[k_idx];
+                        }
                     }
                 }
             }

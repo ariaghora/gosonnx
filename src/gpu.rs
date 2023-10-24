@@ -117,8 +117,15 @@ impl GPUExecutor {
 
         // Execute nodes in topological order
         let sorted_op_names = topo(&graph.op_map);
+        println!("TOPO {:?}", sorted_op_names);
         for op_name in sorted_op_names {
             let op = &graph.op_map[&op_name];
+            println!(
+                "{}: {} -> {} ",
+                op.op_name,
+                op.inputs.len(),
+                op.outputs.len()
+            );
             let shader_source = SHADER_DIR
                 .get_file(format!("{}.glsl", op.op_type))
                 .unwrap()
