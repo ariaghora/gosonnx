@@ -1,4 +1,4 @@
-use crate::graph::{self, Graph, Op};
+use crate::graph::{Graph, Op};
 
 use super::{to_csv_str, Compile};
 
