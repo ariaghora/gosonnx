@@ -24,22 +24,20 @@ impl MaxPoolOp {
 
     pub fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {
         let output_dims = &graph.tensor_map[&op.outputs[0]].shape();
-        let local_size_x_y = 16;
 
-        // Calculate total number of threads needed in the output
-        let num_threads = output_dims[0] * output_dims[1] * output_dims[2] * output_dims[3];
+        // Local sizes are hardware-dependent; these are just example values.
+        let local_size_x = 16;
+        let local_size_y = 4;
+        let local_size_z = 4;
 
-        // Threads per workgroup
-        let threads_per_workgroup = local_size_x_y * local_size_x_y;
+        // Compute number of workgroups needed for each dimension based on the output tensor shape.
+        // Ceil to account for any remaining threads.
+        let workgroup_size_x = ((output_dims[3] + local_size_x - 1) / local_size_x) as u32;
+        let workgroup_size_y = ((output_dims[2] + local_size_y - 1) / local_size_y) as u32;
+        let workgroup_size_z =
+            ((output_dims[0] * output_dims[1] + local_size_z - 1) / local_size_z) as u32;
 
-        // Calculate total number of workgroups needed
-        let num_workgroups = (num_threads + threads_per_workgroup - 1) / threads_per_workgroup;
-
-        // Distribute workgroups evenly across two dimensions
-        let workgroup_size_x = (num_workgroups as f64).sqrt().ceil() as i64;
-        let workgroup_size_y = (num_workgroups + workgroup_size_x - 1) / workgroup_size_x;
-
-        [workgroup_size_x as u32, workgroup_size_y as u32, 1]
+        [workgroup_size_x, workgroup_size_y, workgroup_size_z]
     }
 }
 
@@ -92,7 +90,7 @@ mod test {
             ]),
             vec![1, 2, 3, 3],
         );
-        graph.new_tensor_f32("Y", None, vec![1, 2, 1, 1]);
+        graph.new_tensor_f32("Y", None, vec![1, 2, 2, 2]);
         graph
             .new_op(
                 vec!["X"],
@@ -109,7 +107,10 @@ mod test {
         graph.run().unwrap();
         let out = graph.get_output("Y").unwrap();
         if let Tensor::F32 { values, .. } = out {
-            assert_eq!(values, &Some(vec![5.0, -1.0]));
+            assert_eq!(
+                values,
+                &Some(vec![5.0, 6.0, 8.0, 9.0, -1.0, -2.0, -4.0, -5.0])
+            );
         }
     }
 }
