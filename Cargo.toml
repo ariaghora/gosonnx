@@ -16,3 +16,5 @@ uuid = { version = "1.4.1", features = ["v4"] }
 wgpu = { version = "0.17.1", features = ["glsl"] }
 protobuf = { version = "2.28", features = ["bytes"] }
 anyhow = { version = "1.0.75", features = ["backtrace"] }
+serde = { version = "1.0.189", features = ["serde_derive"] }
+serde_json = "1.0.107"

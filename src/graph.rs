@@ -1,9 +1,10 @@
 use protobuf::Message;
+use serde::Serialize;
 
 use crate::gpu::GPUExecutor;
-use crate::onnx;
 use crate::onnx::onnx::{NodeProto, TensorProto, ValueInfoProto};
 use crate::utils::{get_attr_f, get_attr_i, get_attr_ints};
+use crate::{export_attrs, onnx};
 use std::fmt;
 use std::{cell::RefCell, collections::HashMap};
 
@@ -78,7 +79,16 @@ impl Tensor {
     }
 }
 
-#[derive(Debug)]
+export_attrs! {
+    Conv { dilations, group, kernel_shape, pads, strides },
+    Flatten{axis},
+    Gemm{alpha,beta,trans_a,trans_b},
+    MaxPool{ceil_mode,kernel_shape,pads,strides},
+    Relu{},
+    Unknown{}
+}
+
+#[derive(Debug, Serialize)]
 pub enum OpType {
     Conv {
         dilations: Vec<i64>,
