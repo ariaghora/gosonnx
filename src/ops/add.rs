@@ -5,12 +5,6 @@ use serde::Serialize;
 #[derive(Debug, Serialize)]
 pub struct AddOp;
 
-impl AddOp {
-    pub fn new(axis: i64) -> Self {
-        Self {}
-    }
-}
-
 impl Compile for &AddOp {
     fn compile(
         &self,
@@ -35,7 +29,6 @@ impl Compile for &AddOp {
 
 #[cfg(test)]
 mod test {
-    use std::error::Error;
 
     use crate::{
         graph::{Graph, Tensor},
