@@ -26,7 +26,7 @@ impl MaxPoolOp {
     }
 }
 
-impl Compile for MaxPoolOp {
+impl Compile for &MaxPoolOp {
     fn compile(
         &self,
         op: &crate::graph::Op,
@@ -80,7 +80,10 @@ impl Compile for MaxPoolOp {
 
 #[cfg(test)]
 mod test {
-    use crate::graph::{Graph, OpType, Tensor};
+    use crate::{
+        graph::{Graph, Tensor},
+        ops::OpType,
+    };
 
     use super::MaxPoolOp;
 

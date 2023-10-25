@@ -1,16 +1,9 @@
 use protobuf::Message;
-use serde::Serialize;
 
 use crate::gpu::GPUExecutor;
-use crate::onnx::onnx::{NodeProto, TensorProto, ValueInfoProto};
-use crate::ops::conv::ConvOp;
-use crate::ops::flatten::FlattenOp;
-use crate::ops::gemm::GemmOp;
-use crate::ops::maxpool::MaxPoolOp;
-use crate::ops::relu::ReluOp;
-use crate::utils::{get_attr_f, get_attr_i, get_attr_ints};
-use crate::{export_attrs, onnx};
-use std::fmt;
+use crate::onnx;
+use crate::onnx::onnx::{TensorProto, ValueInfoProto};
+use crate::ops::OpType;
 use std::{cell::RefCell, collections::HashMap};
 
 #[derive(Debug)]
@@ -81,92 +74,6 @@ impl Tensor {
             "Value info proto {} does not have associated field type proto",
             value_info.get_name()
         ))
-    }
-}
-
-export_attrs! {
-    Conv {attr},
-    Flatten{attr},
-    Gemm{attr},
-    MaxPool{attr},
-    Relu{attr},
-    Unknown{}
-}
-
-#[derive(Debug, Serialize)]
-pub enum OpType {
-    Conv {
-        attr: ConvOp,
-    },
-    Flatten {
-        attr: FlattenOp,
-    },
-    Gemm {
-        attr: GemmOp,
-    },
-    MaxPool {
-        attr: MaxPoolOp, // ceil_mode: i64,
-                         // dilations: Vec<i64>,
-                         // kernel_shape: Vec<i64>,
-                         // pads: Vec<i64>,
-                         // strides: Vec<i64>,
-    },
-    Relu {
-        attr: ReluOp,
-    },
-    Unknown,
-}
-
-impl OpType {
-    pub fn from_node_proto(node_proto: &NodeProto) -> Result<Self, String> {
-        match node_proto.get_op_type() {
-            "Conv" => Ok(Self::Conv {
-                attr: ConvOp::new(
-                    get_attr_ints(node_proto, "dilations").unwrap(),
-                    get_attr_i(node_proto, "group").unwrap(),
-                    get_attr_ints(node_proto, "kernel_shape").unwrap(),
-                    get_attr_ints(node_proto, "pads").unwrap(),
-                    get_attr_ints(node_proto, "strides").unwrap(),
-                ),
-            }),
-            "Gemm" => Ok(Self::Gemm {
-                attr: GemmOp::new(
-                    get_attr_f(node_proto, "alpha").unwrap(),
-                    get_attr_f(node_proto, "beta").unwrap(),
-                    get_attr_i(node_proto, "transA").unwrap(),
-                    get_attr_i(node_proto, "transB").unwrap(),
-                ),
-            }),
-            "Flatten" => Ok(Self::Flatten {
-                attr: FlattenOp::new(get_attr_i(node_proto, "axis").unwrap()),
-            }),
-            "MaxPool" => Ok(Self::MaxPool {
-                attr: MaxPoolOp::new(
-                    get_attr_i(node_proto, "ceil_mode").unwrap(),
-                    get_attr_ints(node_proto, "kernel_shape").unwrap(),
-                    get_attr_ints(node_proto, "pads").unwrap(),
-                    get_attr_ints(node_proto, "strides").unwrap(),
-                ),
-            }),
-            "Relu" => Ok(Self::Relu { attr: ReluOp {} }),
-            _ => Err(format!(
-                "ONNX op type {} is not supported yet",
-                node_proto.get_op_type()
-            )),
-        }
-    }
-}
-
-impl fmt::Display for OpType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            OpType::Conv { .. } => write!(f, "Conv"),
-            OpType::Flatten { .. } => write!(f, "Flatten"),
-            OpType::Gemm { .. } => write!(f, "Gemm"),
-            OpType::MaxPool { .. } => write!(f, "MaxPool"),
-            OpType::Relu { .. } => write!(f, "Relu"),
-            OpType::Unknown => write!(f, "Unknown"),
-        }
     }
 }
 

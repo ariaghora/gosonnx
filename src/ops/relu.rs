@@ -1,45 +1,18 @@
 use serde::Serialize;
 
 use crate::{
-    gpu::SHADER_DIR,
     graph::{Graph, Op},
     utils::tensor_len,
 };
 
-use super::Compile;
+use super::{compile_unary, Compile};
 
 #[derive(Debug, Serialize)]
-pub struct ReluOp {}
+pub struct ReluOp;
 
-impl ReluOp {}
-
-impl Compile for ReluOp {
-    fn compile(&self, _op: &Op, _shader_source: &str, _graph: &Graph) -> Result<String, String> {
-        let base_shader_source = SHADER_DIR
-            .get_file("_unary_elementwise.glsl")
-            .unwrap()
-            .contents_utf8()
-            .unwrap();
-        let unary_shader_source = SHADER_DIR
-            .get_file("Relu.glsl")
-            .unwrap()
-            .contents_utf8()
-            .unwrap();
-        let mut tera = tera::Tera::default();
-        let mut context = tera::Context::new();
-        context.insert("input_type", "float");
-        context.insert("output_type", "float");
-
-        tera.add_raw_templates(vec![
-            ("_unary_elementwise", base_shader_source),
-            ("Relu", unary_shader_source),
-        ])
-        .map_err(|e| e.to_string())?;
-
-        let compiled = tera
-            .render("Relu", &mut context)
-            .map_err(|e| e.to_string())?;
-        Ok(compiled)
+impl Compile for &ReluOp {
+    fn compile(&self, op: &Op, shader_source: &str, graph: &Graph) -> Result<String, String> {
+        compile_unary(op, shader_source, graph)
     }
 
     fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {
@@ -54,7 +27,10 @@ impl Compile for ReluOp {
 mod test {
     use std::error::Error;
 
-    use crate::graph::{Graph, OpType, Tensor};
+    use crate::{
+        graph::{Graph, Tensor},
+        ops::OpType,
+    };
 
     #[test]
     fn simple_relu() -> Result<(), Box<dyn Error>> {

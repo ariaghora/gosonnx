@@ -1,8 +1,6 @@
-use crate::graph::{Graph, Op, OpType, Tensor};
-use crate::ops::Compile;
+use crate::graph::{Graph, Op, Tensor};
 use crate::utils::tensor_len;
 use include_dir::{include_dir, Dir};
-use naga::FastHashMap;
 use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 use wgpu::util::DeviceExt;
 
@@ -111,38 +109,9 @@ impl GPUExecutor {
                 .unwrap()
                 .contents_utf8()
                 .unwrap();
-            match &op.op_type {
-                OpType::Gemm { attr } => {
-                    let compiled = attr.compile(op, shader_source, graph)?;
-                    let wg = attr.compute_workgroup_size(op, graph);
-                    self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?
-                }
-                OpType::Conv { attr } => {
-                    let compiled = attr.compile(op, shader_source, graph)?;
-                    let wg = attr.compute_workgroup_size(op, graph);
-                    self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?
-                }
-                OpType::Flatten { attr } => {
-                    let compiled = attr.compile(op, shader_source, graph)?;
-                    let wg = attr.compute_workgroup_size(op, graph);
-                    self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?;
-                }
-                OpType::MaxPool { attr } => {
-                    let wg = attr.compute_workgroup_size(op, graph);
-                    let compiled = attr.compile(op, shader_source, graph)?;
-                    self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?;
-                }
 
-                OpType::Relu { attr } => {
-                    let wg = attr.compute_workgroup_size(op, graph);
-                    let compiled = attr.compile(op, shader_source, graph)?;
-                    self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?
-                }
-
-                _ => {
-                    return Err(format!("Op `{:?}` is unsupported yet", op.op_type));
-                }
-            }
+            let (compiled, wg) = op.op_type.compile(shader_source, op, graph)?;
+            self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?;
         }
 
         for output in &terminal_outputs {
@@ -207,7 +176,7 @@ impl GPUExecutor {
         op: &Op,
         num_work_groups: &[u32],
     ) -> Result<(), String> {
-        let mut defines = FastHashMap::default();
+        let mut defines = naga::FastHashMap::default();
         defines.insert("GL_EXT_debug_printf".into(), "enable".into());
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,

@@ -18,7 +18,7 @@ impl FlattenOp {
     }
 }
 
-impl Compile for FlattenOp {
+impl Compile for &FlattenOp {
     fn compile(
         &self,
         op: &crate::graph::Op,
@@ -73,8 +73,8 @@ impl Compile for FlattenOp {
 #[cfg(test)]
 mod test {
     use crate::{
-        graph::{Graph, OpType, Tensor},
-        ops::relu::ReluOp,
+        graph::{Graph, Tensor},
+        ops::{relu::ReluOp, OpType},
     };
 
     use super::FlattenOp;

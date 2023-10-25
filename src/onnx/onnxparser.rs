@@ -1,9 +1,11 @@
-use crate::graph::{
-    // onnx::{self, ModelProto, NodeProto, TensorProto},
-    Graph,
-    Op,
-    OpType,
-    Tensor,
+use crate::{
+    graph::{
+        // onnx::{self, ModelProto, NodeProto, TensorProto},
+        Graph,
+        Op,
+        Tensor,
+    },
+    ops::OpType,
 };
 use anyhow::{anyhow, Result};
 

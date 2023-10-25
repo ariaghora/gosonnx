@@ -23,7 +23,7 @@ impl GemmOp {
     }
 }
 
-impl Compile for GemmOp {
+impl Compile for &GemmOp {
     fn compile(&self, op: &Op, shader_template: &str, graph: &Graph) -> Result<String, String> {
         let mut tera = tera::Tera::default();
         let mut context = tera::Context::new();
@@ -94,7 +94,10 @@ impl Compile for GemmOp {
 
 #[cfg(test)]
 mod tests {
-    use crate::graph::{Graph, OpType, Tensor};
+    use crate::{
+        graph::{Graph, Tensor},
+        ops::OpType,
+    };
 
     #[test]
     fn simple_gemm() {

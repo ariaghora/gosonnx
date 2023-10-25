@@ -31,7 +31,7 @@ impl ConvOp {
     }
 }
 
-impl Compile for ConvOp {
+impl Compile for &ConvOp {
     fn compile(&self, op: &Op, shader_template: &str, graph: &Graph) -> Result<String, String> {
         let mut tera = tera::Tera::default();
         let mut context = tera::Context::new();
@@ -92,7 +92,10 @@ impl Compile for ConvOp {
 
 #[cfg(test)]
 mod test {
-    use crate::graph::{Graph, OpType, Tensor};
+    use crate::{
+        graph::{Graph, Tensor},
+        ops::OpType,
+    };
 
     use super::ConvOp;
 
