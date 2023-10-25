@@ -1,10 +1,13 @@
+pub mod add;
 pub mod conv;
 pub mod flatten;
 pub mod gemm;
 pub mod maxpool;
 pub mod relu;
 
-use self::{conv::ConvOp, flatten::FlattenOp, gemm::GemmOp, maxpool::MaxPoolOp, relu::ReluOp};
+use self::{
+    add::AddOp, conv::ConvOp, flatten::FlattenOp, gemm::GemmOp, maxpool::MaxPoolOp, relu::ReluOp,
+};
 use crate::{
     gpu::SHADER_DIR,
     graph::{Graph, Op},
@@ -21,6 +24,7 @@ pub trait Compile {
 
 #[derive(Debug, Serialize)]
 pub enum OpType {
+    Add { attr: AddOp },
     Conv { attr: ConvOp },
     Flatten { attr: FlattenOp },
     Gemm { attr: GemmOp },
@@ -37,6 +41,7 @@ impl<'gr, 'gpu> OpType {
         graph: &'gr Graph,
     ) -> Result<(String, [u32; 3]), String> {
         let (compiled, wg) = match self {
+            OpType::Add { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Conv { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Flatten { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Gemm { attr } => self._compile(attr, shader_source, op, graph)?,
@@ -63,6 +68,7 @@ impl<'gr, 'gpu> OpType {
 impl fmt::Display for OpType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            OpType::Add { .. } => write!(f, "Add"),
             OpType::Conv { .. } => write!(f, "Conv"),
             OpType::Flatten { .. } => write!(f, "Flatten"),
             OpType::Gemm { .. } => write!(f, "Gemm"),
@@ -76,6 +82,7 @@ impl fmt::Display for OpType {
 impl OpType {
     pub fn from_node_proto(node_proto: &NodeProto) -> Result<Self, String> {
         match node_proto.get_op_type() {
+            "Add" => Ok(Self::Add { attr: AddOp {} }),
             "Conv" => Ok(Self::Conv {
                 attr: ConvOp::new(
                     get_attr_ints(node_proto, "dilations").unwrap(),
@@ -139,6 +146,39 @@ pub fn compile_unary(op: &Op, _shader_source: &str, _graph: &Graph) -> Result<St
 
     tera.add_raw_templates(vec![
         ("_unary_elementwise", base_shader_source),
+        (&op.op_type.to_string(), unary_shader_source),
+    ])
+    .map_err(|e| e.to_string())?;
+
+    let compiled = tera
+        .render(&op.op_type.to_string(), &mut context)
+        .map_err(|e| e.to_string())?;
+    Ok(compiled)
+}
+
+pub fn compile_binary(op: &Op, _shader_source: &str, _graph: &Graph) -> Result<String, String> {
+    let base_shader_source = SHADER_DIR
+        .get_file("_binary_elementwise.glsl")
+        .unwrap()
+        .contents_utf8()
+        .unwrap();
+    let unary_shader_source = SHADER_DIR
+        .get_file(&format!("{}.glsl", op.op_type.to_string()))
+        .unwrap()
+        .contents_utf8()
+        .unwrap();
+    let mut tera = tera::Tera::default();
+    let mut context = tera::Context::new();
+
+    let input_1 = &_graph.tensor_map[&op.inputs[0]];
+    let input_2 = &_graph.tensor_map[&op.inputs[1]];
+    let output = &_graph.tensor_map[&op.outputs[0]];
+    context.insert("input_1_type", &input_1.type_glsl());
+    context.insert("input_2_type", &input_2.type_glsl());
+    context.insert("output_type", &output.type_glsl());
+
+    tera.add_raw_templates(vec![
+        ("_binary_elementwise", base_shader_source),
         (&op.op_type.to_string(), unary_shader_source),
     ])
     .map_err(|e| e.to_string())?;

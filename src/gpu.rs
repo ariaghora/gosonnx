@@ -105,7 +105,7 @@ impl GPUExecutor {
         for op_name in sorted_op_names {
             let op = &graph.op_map[&op_name];
             let shader_source = SHADER_DIR
-                .get_file(format!("{}.glsl", op.op_type))
+                .get_file(format!("{}.glsl", op.op_type.to_string()))
                 .unwrap()
                 .contents_utf8()
                 .unwrap();
