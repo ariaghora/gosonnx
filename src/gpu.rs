@@ -1,16 +1,12 @@
-use std::fmt::Display;
-use std::{borrow::Cow, collections::HashMap, fmt::Debug};
-
-use crate::graph::{ExportAttr, Graph, Op, OpType, Tensor};
-use crate::ops::conv::ConvOp;
-use crate::ops::flatten::FlattenOp;
-use crate::ops::maxpool::MaxPoolOp;
-use crate::ops::{gemm::GemmOp, Compile};
+use crate::graph::{Graph, Op, OpType, Tensor};
+use crate::ops::Compile;
+use crate::utils::tensor_len;
 use include_dir::{include_dir, Dir};
 use naga::FastHashMap;
+use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 use wgpu::util::DeviceExt;
 
-static SHADER_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/shader");
+pub static SHADER_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/shader");
 
 pub struct GPUExecutor {
     pub storage_buf_map: HashMap<String, wgpu::Buffer>,
@@ -55,16 +51,6 @@ fn create_staging_buf<'a, T: bytemuck::Pod + Default + Debug>(
         usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
     });
     data
-}
-
-fn tensor_len(t: &Tensor) -> Result<usize, String> {
-    let len = match t {
-        Tensor::F32 { values: _, shape } => shape,
-        Tensor::F64 { values: _, shape } => shape,
-    }
-    .iter()
-    .fold(1, |x, y| x * y) as usize;
-    Ok(len)
 }
 
 impl GPUExecutor {
@@ -126,68 +112,31 @@ impl GPUExecutor {
                 .contents_utf8()
                 .unwrap();
             match &op.op_type {
-                OpType::Gemm {
-                    alpha,
-                    beta,
-                    trans_a,
-                    trans_b,
-                } => {
-                    let gemm_op = GemmOp::new(*alpha, *beta, *trans_a, *trans_b);
-                    let compiled = gemm_op.compile(op, shader_source, graph)?;
-                    let (x, y) = gemm_op.compute_workgroup_size(op, graph);
-                    self.execute_pass(&compiled, &device, &mut encoder, op, &[x, y, 1])?
-                }
-                OpType::Conv {
-                    dilations,
-                    group,
-                    kernel_shape,
-                    pads,
-                    strides,
-                } => {
-                    let conv_op = ConvOp::new(
-                        dilations.clone(),
-                        *group,
-                        kernel_shape.clone(),
-                        pads.clone(),
-                        strides.clone(),
-                    );
-                    let compiled = conv_op.compile(op, shader_source, graph)?;
-                    let wg = conv_op.compute_workgroup_size(op, graph);
+                OpType::Gemm { attr } => {
+                    let compiled = attr.compile(op, shader_source, graph)?;
+                    let wg = attr.compute_workgroup_size(op, graph);
                     self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?
                 }
-                OpType::Flatten { axis } => {
-                    let flatten_op = FlattenOp::new(*axis);
-                    let compiled = flatten_op.compile(op, shader_source, graph)?;
-                    let wg = flatten_op.compute_workgroup_size(op, graph);
+                OpType::Conv { attr } => {
+                    let compiled = attr.compile(op, shader_source, graph)?;
+                    let wg = attr.compute_workgroup_size(op, graph);
+                    self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?
+                }
+                OpType::Flatten { attr } => {
+                    let compiled = attr.compile(op, shader_source, graph)?;
+                    let wg = attr.compute_workgroup_size(op, graph);
                     self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?;
                 }
-                OpType::MaxPool {
-                    ceil_mode,
-                    kernel_shape,
-                    pads,
-                    strides,
-                } => {
-                    let maxpool_op = MaxPoolOp::new(
-                        *ceil_mode,
-                        kernel_shape.clone(),
-                        pads.clone(),
-                        strides.clone(),
-                    );
-                    let wg = maxpool_op.compute_workgroup_size(op, graph);
-                    let compiled = maxpool_op.compile(op, shader_source, graph)?;
+                OpType::MaxPool { attr } => {
+                    let wg = attr.compute_workgroup_size(op, graph);
+                    let compiled = attr.compile(op, shader_source, graph)?;
                     self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?;
                 }
-                // Simple Op pass can be just executed.
-                // - 1 input & 1 output buffer
-                // - Input length = output length
-                // - input type = output type
-                OpType::Relu => {
-                    let local_size_x = 256;
-                    let numel = tensor_len(&graph.tensor_map[&op.inputs[0]]).unwrap();
-                    let num_workgroups_x = (numel + local_size_x - 1) / local_size_x;
-                    let wg = &[num_workgroups_x as u32, 1, 1];
-                    let compiled = self.compile_unary_shader(&op.op_type)?;
-                    self.execute_pass(&compiled, &device, &mut encoder, op, wg)?
+
+                OpType::Relu { attr } => {
+                    let wg = attr.compute_workgroup_size(op, graph);
+                    let compiled = attr.compile(op, shader_source, graph)?;
+                    self.execute_pass(&compiled, &device, &mut encoder, op, &wg)?
                 }
 
                 _ => {
@@ -355,36 +304,6 @@ impl GPUExecutor {
             .unwrap();
 
         Ok((device, queue))
-    }
-
-    fn compile_op<Compilable: Compile>(&self, op: Compilable) {}
-
-    fn compile_unary_shader<T: ExportAttr + Display>(&self, op_type: T) -> Result<String, String> {
-        let base_shader_source = SHADER_DIR
-            .get_file("_unary_elementwise.glsl")
-            .unwrap()
-            .contents_utf8()
-            .unwrap();
-        let unary_shader_source = SHADER_DIR
-            .get_file(format!("{}.glsl", op_type))
-            .unwrap()
-            .contents_utf8()
-            .unwrap();
-        let mut tera = tera::Tera::default();
-        let mut context = tera::Context::new();
-        context.insert("input_type", "float");
-        context.insert("output_type", "float");
-
-        tera.add_raw_templates(vec![
-            ("_unary_elementwise", base_shader_source),
-            (&op_type.to_string(), unary_shader_source),
-        ])
-        .map_err(|e| e.to_string())?;
-
-        let compiled = tera
-            .render(&op_type.to_string(), &mut context)
-            .map_err(|e| e.to_string())?;
-        Ok(compiled)
     }
 }
 

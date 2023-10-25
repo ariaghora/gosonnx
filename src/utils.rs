@@ -1,4 +1,4 @@
-use crate::onnx::onnx::NodeProto;
+use crate::{graph::Tensor, onnx::onnx::NodeProto};
 
 pub fn get_attr_ints<'a>(node_proto: &'a NodeProto, attr_name: &str) -> Option<Vec<i64>> {
     for attr in node_proto.get_attribute() {
@@ -25,4 +25,14 @@ pub fn get_attr_i<'a>(node_proto: &'a NodeProto, attr_name: &str) -> Option<i64>
         }
     }
     None
+}
+
+pub fn tensor_len(t: &Tensor) -> Result<usize, String> {
+    let len = match t {
+        Tensor::F32 { values: _, shape } => shape,
+        Tensor::F64 { values: _, shape } => shape,
+    }
+    .iter()
+    .fold(1, |x, y| x * y) as usize;
+    Ok(len)
 }

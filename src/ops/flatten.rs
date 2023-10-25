@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use crate::{
     graph::{Graph, Op},
     ops::to_csv_str,
@@ -5,6 +7,7 @@ use crate::{
 
 use super::Compile;
 
+#[derive(Debug, Serialize)]
 pub struct FlattenOp {
     axis: i64,
 }
@@ -12,22 +15,6 @@ pub struct FlattenOp {
 impl FlattenOp {
     pub fn new(axis: i64) -> Self {
         Self { axis }
-    }
-    pub fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {
-        let output_dims = &graph.tensor_map[&op.outputs[0]].shape();
-        let local_size_x = 32;
-        let local_size_y = 8;
-
-        // Number of workgroups in each dimension
-        let num_workgroups_x = (output_dims[1] + local_size_x - 1) / local_size_x;
-        let num_workgroups_y = (output_dims[0] + local_size_y - 1) / local_size_y;
-        let num_workgroups_z = 1; // Since the output tensor is 2D, the z-dimension is always 1.
-
-        [
-            num_workgroups_x as u32,
-            num_workgroups_y as u32,
-            num_workgroups_z as u32,
-        ]
     }
 }
 
@@ -64,11 +51,33 @@ impl Compile for FlattenOp {
 
         Ok(compiled)
     }
+
+    fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {
+        let output_dims = &graph.tensor_map[&op.outputs[0]].shape();
+        let local_size_x = 32;
+        let local_size_y = 8;
+
+        // Number of workgroups in each dimension
+        let num_workgroups_x = (output_dims[1] + local_size_x - 1) / local_size_x;
+        let num_workgroups_y = (output_dims[0] + local_size_y - 1) / local_size_y;
+        let num_workgroups_z = 1; // Since the output tensor is 2D, the z-dimension is always 1.
+
+        [
+            num_workgroups_x as u32,
+            num_workgroups_y as u32,
+            num_workgroups_z as u32,
+        ]
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::graph::{Graph, OpType, Tensor};
+    use crate::{
+        graph::{Graph, OpType, Tensor},
+        ops::relu::ReluOp,
+    };
+
+    use super::FlattenOp;
 
     #[test]
     fn simple_flatten() {
@@ -83,7 +92,14 @@ mod test {
         );
         graph.new_tensor_f32("Y", None, vec![1, 18]);
         graph
-            .new_op(vec!["X"], vec!["Y"], "flatten", OpType::Flatten { axis: 1 })
+            .new_op(
+                vec!["X"],
+                vec!["Y"],
+                "flatten",
+                OpType::Flatten {
+                    attr: FlattenOp::new(1),
+                },
+            )
             .unwrap();
         graph.run().unwrap();
         let out = graph.get_output("Y").unwrap();
@@ -112,10 +128,22 @@ mod test {
         graph.new_tensor_f32("Y", None, vec![1, 18]);
         graph.new_tensor_f32("Z", None, vec![1, 18]);
         graph
-            .new_op(vec!["X"], vec!["Y"], "flatten", OpType::Flatten { axis: 1 })
+            .new_op(
+                vec!["X"],
+                vec!["Y"],
+                "flatten",
+                OpType::Flatten {
+                    attr: FlattenOp::new(1),
+                },
+            )
             .unwrap();
         graph
-            .new_op(vec!["Y"], vec!["Z"], "relu", OpType::Relu)
+            .new_op(
+                vec!["Y"],
+                vec!["Z"],
+                "relu",
+                OpType::Relu { attr: ReluOp {} },
+            )
             .unwrap();
         graph.run().unwrap();
         let out = graph.get_output("Z").unwrap();

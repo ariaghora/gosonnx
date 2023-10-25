@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use crate::{
     graph::{Graph, Op},
     ops::to_csv_str,
@@ -5,6 +7,7 @@ use crate::{
 
 use super::Compile;
 
+#[derive(Debug, Serialize)]
 pub struct MaxPoolOp {
     ceil_mode: i64,
     kernel_shape: Vec<i64>,
@@ -20,24 +23,6 @@ impl MaxPoolOp {
             pads,
             strides,
         }
-    }
-
-    pub fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {
-        let output_dims = &graph.tensor_map[&op.outputs[0]].shape();
-
-        // Local sizes are hardware-dependent; these are just example values.
-        let local_size_x = 16;
-        let local_size_y = 4;
-        let local_size_z = 4;
-
-        // Compute number of workgroups needed for each dimension based on the output tensor shape.
-        // Ceil to account for any remaining threads.
-        let workgroup_size_x = ((output_dims[3] + local_size_x - 1) / local_size_x) as u32;
-        let workgroup_size_y = ((output_dims[2] + local_size_y - 1) / local_size_y) as u32;
-        let workgroup_size_z =
-            ((output_dims[0] * output_dims[1] + local_size_z - 1) / local_size_z) as u32;
-
-        [workgroup_size_x, workgroup_size_y, workgroup_size_z]
     }
 }
 
@@ -73,11 +58,31 @@ impl Compile for MaxPoolOp {
 
         Ok(compiled)
     }
+
+    fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {
+        let output_dims = &graph.tensor_map[&op.outputs[0]].shape();
+
+        // Local sizes are hardware-dependent; these are just example values.
+        let local_size_x = 16;
+        let local_size_y = 4;
+        let local_size_z = 4;
+
+        // Compute number of workgroups needed for each dimension based on the output tensor shape.
+        // Ceil to account for any remaining threads.
+        let workgroup_size_x = ((output_dims[3] + local_size_x - 1) / local_size_x) as u32;
+        let workgroup_size_y = ((output_dims[2] + local_size_y - 1) / local_size_y) as u32;
+        let workgroup_size_z =
+            ((output_dims[0] * output_dims[1] + local_size_z - 1) / local_size_z) as u32;
+
+        [workgroup_size_x, workgroup_size_y, workgroup_size_z]
+    }
 }
 
 #[cfg(test)]
 mod test {
     use crate::graph::{Graph, OpType, Tensor};
+
+    use super::MaxPoolOp;
 
     #[test]
     fn simple_pool() {
@@ -97,10 +102,7 @@ mod test {
                 vec!["Y"],
                 "my_maxpool",
                 OpType::MaxPool {
-                    ceil_mode: 0,
-                    kernel_shape: vec![2, 2],
-                    pads: vec![0, 0, 0, 0],
-                    strides: vec![1, 1],
+                    attr: MaxPoolOp::new(0, vec![2, 2], vec![0, 0, 0, 0], vec![1, 1]),
                 },
             )
             .unwrap();

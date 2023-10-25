@@ -1,7 +1,10 @@
+use serde::Serialize;
+
 use crate::graph::{Graph, Op};
 
 use super::Compile;
 
+#[derive(Debug, Serialize)]
 pub struct GemmOp {
     alpha: f32,
     beta: f32,
@@ -17,18 +20,6 @@ impl GemmOp {
             trans_a,
             trans_b,
         }
-    }
-    pub fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> (u32, u32) {
-        let out = &graph.tensor_map[&op.outputs[0]];
-        let (m, n) = (out.shape()[0], out.shape()[1]);
-        let local_size_x = 16;
-        let local_size_y = 16;
-
-        // Number of workgroups in each dimension
-        let num_workgroups_x = (n + local_size_x - 1) / local_size_x;
-        let num_workgroups_y = (m + local_size_y - 1) / local_size_y;
-
-        (num_workgroups_x as u32, num_workgroups_y as u32)
     }
 }
 
@@ -86,6 +77,19 @@ impl Compile for GemmOp {
             .map_err(|e| e.to_string());
         rendered
     }
+
+    fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {
+        let out = &graph.tensor_map[&op.outputs[0]];
+        let (m, n) = (out.shape()[0], out.shape()[1]);
+        let local_size_x = 16;
+        let local_size_y = 16;
+
+        // Number of workgroups in each dimension
+        let num_workgroups_x = (n + local_size_x - 1) / local_size_x;
+        let num_workgroups_y = (m + local_size_y - 1) / local_size_y;
+
+        [num_workgroups_x as u32, num_workgroups_y as u32, 1]
+    }
 }
 
 #[cfg(test)]
@@ -104,10 +108,7 @@ mod tests {
                 vec!["output"],
                 "my_gemm",
                 OpType::Gemm {
-                    alpha: 1.,
-                    beta: 1.,
-                    trans_a: 0,
-                    trans_b: 0,
+                    attr: super::GemmOp::new(1.0, 1.0, 0, 0),
                 },
             )
             .unwrap();
@@ -135,10 +136,7 @@ mod tests {
                 vec!["output"],
                 "my_gemm",
                 OpType::Gemm {
-                    alpha: 1.,
-                    beta: 1.,
-                    trans_a: 0,
-                    trans_b: 0,
+                    attr: super::GemmOp::new(1.0, 1.0, 0, 0),
                 },
             )
             .unwrap();
@@ -170,10 +168,7 @@ mod tests {
                 vec!["output"],
                 "my_gemm",
                 OpType::Gemm {
-                    alpha: 1.,
-                    beta: 1.,
-                    trans_a: 0,
-                    trans_b: 0,
+                    attr: super::GemmOp::new(1.0, 1.0, 0, 0),
                 },
             )
             .unwrap();
@@ -207,10 +202,7 @@ mod tests {
                 vec!["output"],
                 "my_gemm",
                 OpType::Gemm {
-                    alpha: 1.,
-                    beta: 1.,
-                    trans_a: 0,
-                    trans_b: 0,
+                    attr: super::GemmOp::new(1.0, 1.0, 0, 0),
                 },
             )
             .unwrap();
@@ -239,10 +231,7 @@ mod tests {
                 vec!["output"],
                 "my_gemm",
                 OpType::Gemm {
-                    alpha: 1.,
-                    beta: 1.,
-                    trans_a: 0,
-                    trans_b: 0,
+                    attr: super::GemmOp::new(1.0, 1.0, 0, 0),
                 },
             )
             .unwrap();
