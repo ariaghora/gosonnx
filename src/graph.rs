@@ -4,7 +4,6 @@ use crate::gpu::GPUExecutor;
 use crate::onnx;
 use crate::onnx::onnx::{TensorProto, ValueInfoProto};
 use crate::ops::OpType;
-use crate::utils::tensor_len;
 use std::{cell::RefCell, collections::HashMap};
 
 #[derive(Debug)]

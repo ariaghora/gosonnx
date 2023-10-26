@@ -29,9 +29,11 @@ pub enum OpType {
     Add { attr: BinOpElementwise },
     Clip { attr: ClipOp },
     Conv { attr: ConvOp },
+    Div { attr: BinOpElementwise },
     Flatten { attr: FlattenOp },
     Gemm { attr: GemmOp },
     MaxPool { attr: MaxPoolOp },
+    Mul { attr: BinOpElementwise },
     Relu { attr: ReluOp },
     Unknown,
 }
@@ -47,24 +49,14 @@ impl<'gr, 'gpu> OpType {
             OpType::Add { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Clip { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Conv { attr } => self._compile(attr, shader_source, op, graph)?,
+            OpType::Div { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Flatten { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Gemm { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::MaxPool { attr } => self._compile(attr, shader_source, op, graph)?,
+            OpType::Mul { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Relu { attr } => self._compile(attr, shader_source, op, graph)?,
             _ => return Err(format!("Op `{:?}` is unsupported yet", op.op_type)),
         };
-        Ok((compiled, wg))
-    }
-
-    fn _compile<Compilable: Compile>(
-        &self,
-        attr: Compilable,
-        shader_source: &str,
-        op: &'gr Op,
-        graph: &'gr Graph,
-    ) -> Result<(String, [u32; 3]), String> {
-        let compiled = attr.compile(op, shader_source, graph)?;
-        let wg = attr.compute_workgroup_size(op, graph);
         Ok((compiled, wg))
     }
 }
@@ -75,9 +67,11 @@ impl fmt::Display for OpType {
             OpType::Add { .. } => write!(f, "Add"),
             OpType::Clip { .. } => write!(f, "Clip"),
             OpType::Conv { .. } => write!(f, "Conv"),
+            OpType::Div { .. } => write!(f, "Div"),
             OpType::Flatten { .. } => write!(f, "Flatten"),
             OpType::Gemm { .. } => write!(f, "Gemm"),
             OpType::MaxPool { .. } => write!(f, "MaxPool"),
+            OpType::Mul { .. } => write!(f, "Mul"),
             OpType::Relu { .. } => write!(f, "Relu"),
             OpType::Unknown => write!(f, "Unknown"),
         }
@@ -102,6 +96,9 @@ impl OpType {
                     get_attr_ints(node_proto, "strides").unwrap(),
                 ),
             }),
+            "Div" => Ok(Self::Div {
+                attr: BinOpElementwise {},
+            }),
             "Gemm" => Ok(Self::Gemm {
                 attr: GemmOp::new(
                     get_attr_f(node_proto, "alpha").unwrap(),
@@ -121,12 +118,29 @@ impl OpType {
                     get_attr_ints(node_proto, "strides").unwrap(),
                 ),
             }),
+            "Mul" => Ok(Self::Mul {
+                attr: BinOpElementwise {},
+            }),
             "Relu" => Ok(Self::Relu { attr: ReluOp {} }),
             _ => Err(format!(
                 "ONNX op type `{}` is not supported yet",
                 node_proto.get_op_type()
             )),
         }
+    }
+}
+
+impl<'gr, 'gpu> OpType {
+    fn _compile<Compilable: Compile>(
+        &self,
+        attr: Compilable,
+        shader_source: &str,
+        op: &'gr Op,
+        graph: &'gr Graph,
+    ) -> Result<(String, [u32; 3]), String> {
+        let compiled = attr.compile(op, shader_source, graph)?;
+        let wg = attr.compute_workgroup_size(op, graph);
+        Ok((compiled, wg))
     }
 }
 
