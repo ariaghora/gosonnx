@@ -3,6 +3,7 @@ pub mod clip;
 pub mod conv;
 pub mod flatten;
 pub mod gemm;
+mod hard_sigmoid;
 pub mod maxpool;
 pub mod relu;
 mod sigmoid;
@@ -35,10 +36,13 @@ pub enum OpType {
     Div { attr: BinOpElementwise },
     Flatten { attr: FlattenOp },
     Gemm { attr: GemmOp },
+    HardSigmoid { attr: UnOpElementwise },
     MaxPool { attr: MaxPoolOp },
     Mul { attr: BinOpElementwise },
     Relu { attr: UnOpElementwise },
     Sigmoid { attr: UnOpElementwise },
+    //
+    // Default OpType when creating a node
     Unknown,
 }
 
@@ -56,11 +60,14 @@ impl<'gr, 'gpu> OpType {
             OpType::Div { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Flatten { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Gemm { attr } => self._compile(attr, shader_source, op, graph)?,
+            OpType::HardSigmoid { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::MaxPool { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Mul { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Relu { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Sigmoid { attr } => self._compile(attr, shader_source, op, graph)?,
-            _ => return Err(format!("Op `{:?}` is unsupported yet", op.op_type)),
+            //
+            // Default OpType when creating a node
+            OpType::Unknown => return Err(format!("Op `{:?}` is unsupported yet", op.op_type)),
         };
         Ok((compiled, wg))
     }
@@ -75,6 +82,7 @@ impl fmt::Display for OpType {
             OpType::Div { .. } => write!(f, "Div"),
             OpType::Flatten { .. } => write!(f, "Flatten"),
             OpType::Gemm { .. } => write!(f, "Gemm"),
+            OpType::HardSigmoid { .. } => write!(f, "HardSigmoid"),
             OpType::MaxPool { .. } => write!(f, "MaxPool"),
             OpType::Mul { .. } => write!(f, "Mul"),
             OpType::Relu { .. } => write!(f, "Relu"),
@@ -139,6 +147,9 @@ impl OpType {
                 attr: BinOpElementwise {},
             }),
             "Relu" => Ok(Self::Relu {
+                attr: UnOpElementwise::new(vec![]),
+            }),
+            "Sigmoid" => Ok(Self::Sigmoid {
                 attr: UnOpElementwise::new(vec![]),
             }),
             _ => Err(format!(
