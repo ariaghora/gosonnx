@@ -99,19 +99,12 @@ impl OpType {
             "Add" => Ok(Self::Add {
                 attr: BinOpElementwise {},
             }),
-            "Clip" => {
-                let mut attrs = vec![];
-                if let Some(v) = get_attr_f(node_proto, "min") {
-                    attrs.push(attribute!("min_val", v))
-                }
-                if let Some(v) = get_attr_f(node_proto, "max") {
-                    attrs.push(attribute!("max_val", v))
-                }
-
-                Ok(Self::Clip {
-                    attr: UnOpElementwise::new(attrs),
-                })
-            }
+            "Clip" => Ok(Self::Clip {
+                attr: UnOpElementwise::new(vec![
+                    attribute!("min_val", get_attr_f(node_proto, "min")),
+                    attribute!("max_val", get_attr_f(node_proto, "max")),
+                ]),
+            }),
             "Conv" => Ok(Self::Conv {
                 attr: ConvOp::new(
                     get_attr_ints(node_proto, "dilations").unwrap(),
@@ -131,6 +124,12 @@ impl OpType {
                     get_attr_i(node_proto, "transA").unwrap(),
                     get_attr_i(node_proto, "transB").unwrap(),
                 ),
+            }),
+            "HardSigmoid" => Ok(Self::HardSigmoid {
+                attr: UnOpElementwise::new(vec![attribute!(
+                    "alpha",
+                    get_attr_f(node_proto, "alpha")
+                )]),
             }),
             "Flatten" => Ok(Self::Flatten {
                 attr: FlattenOp::new(get_attr_i(node_proto, "axis").unwrap()),

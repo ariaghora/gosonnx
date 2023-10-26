@@ -29,7 +29,7 @@ mod test {
 
         graph.run()?;
         if let Some(result) = graph.get_output("Y") {
-            if let Tensor::F32 { values, shape } = result {
+            if let Tensor::F32 { values, .. } = result {
                 assert_eq!(
                     values,
                     &Some(

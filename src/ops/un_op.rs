@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 
 use serde::{Serialize, Serializer};
 
@@ -10,7 +10,7 @@ use crate::{
 use super::{compile_unary, Compile};
 
 pub struct UnOpElementwise {
-    pub attrs: Vec<(String, Box<dyn Display>)>,
+    pub attrs: Vec<(String, Box<dyn Debug>)>,
 }
 
 impl Serialize for UnOpElementwise {
@@ -29,7 +29,7 @@ impl Debug for UnOpElementwise {
 }
 
 impl UnOpElementwise {
-    pub fn new(attrs: Vec<(String, Box<dyn Display>)>) -> Self {
+    pub fn new(attrs: Vec<(String, Box<dyn Debug>)>) -> Self {
         Self { attrs }
     }
 }
@@ -39,7 +39,7 @@ impl Compile for &UnOpElementwise {
         let attrs: Vec<(&str, String)> = self
             .attrs
             .iter()
-            .map(|(k, v)| (k.as_str(), v.to_string()))
+            .map(|(k, v)| (k.as_str(), format!("{:?}", v)))
             .collect();
         let compiled = compile_unary(op, Some(attrs), shader_source, graph);
 
