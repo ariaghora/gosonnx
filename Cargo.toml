@@ -18,3 +18,4 @@ protobuf = { version = "2.28", features = ["bytes"] }
 anyhow = { version = "1.0.75", features = ["backtrace"] }
 serde = { version = "1.0.189", features = ["serde_derive"] }
 serde_json = "1.0.107"
+num-traits = "0.2.17"

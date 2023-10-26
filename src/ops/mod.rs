@@ -5,10 +5,12 @@ pub mod flatten;
 pub mod gemm;
 pub mod maxpool;
 pub mod relu;
+mod sigmoid;
+mod un_op;
 
 use self::{
     bin_op::BinOpElementwise, clip::ClipOp, conv::ConvOp, flatten::FlattenOp, gemm::GemmOp,
-    maxpool::MaxPoolOp, relu::ReluOp,
+    maxpool::MaxPoolOp, relu::ReluOp, un_op::UnOpElementwise,
 };
 use crate::{
     gpu::SHADER_DIR,
@@ -35,6 +37,7 @@ pub enum OpType {
     MaxPool { attr: MaxPoolOp },
     Mul { attr: BinOpElementwise },
     Relu { attr: ReluOp },
+    Sigmoid { attr: UnOpElementwise },
     Unknown,
 }
 
@@ -55,6 +58,7 @@ impl<'gr, 'gpu> OpType {
             OpType::MaxPool { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Mul { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Relu { attr } => self._compile(attr, shader_source, op, graph)?,
+            OpType::Sigmoid { attr } => self._compile(attr, shader_source, op, graph)?,
             _ => return Err(format!("Op `{:?}` is unsupported yet", op.op_type)),
         };
         Ok((compiled, wg))
@@ -73,6 +77,7 @@ impl fmt::Display for OpType {
             OpType::MaxPool { .. } => write!(f, "MaxPool"),
             OpType::Mul { .. } => write!(f, "Mul"),
             OpType::Relu { .. } => write!(f, "Relu"),
+            OpType::Sigmoid { .. } => write!(f, "Sigmoid"),
             OpType::Unknown => write!(f, "Unknown"),
         }
     }

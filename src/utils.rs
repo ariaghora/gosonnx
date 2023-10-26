@@ -36,3 +36,16 @@ pub fn tensor_len(t: &Tensor) -> Result<usize, String> {
     .fold(1, |x, y| x * y) as usize;
     Ok(len)
 }
+
+pub fn vec_close<T: num_traits::Float>(a: Vec<T>, b: Vec<T>) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+
+    for i in 0..a.len() {
+        if (a[i] - b[i]).abs() > T::from(1e-4).unwrap() {
+            return false;
+        }
+    }
+    return true;
+}
