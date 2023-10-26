@@ -4,6 +4,7 @@ use crate::gpu::GPUExecutor;
 use crate::onnx;
 use crate::onnx::onnx::{TensorProto, ValueInfoProto};
 use crate::ops::OpType;
+use crate::utils::tensor_len;
 use std::{cell::RefCell, collections::HashMap};
 
 #[derive(Debug)]
@@ -34,12 +35,18 @@ impl Tensor {
     }
 
     pub(crate) fn from_tensor_proto(t: &TensorProto, empty: bool) -> Result<Tensor, String> {
+        let tlen = t.get_dims().iter().fold(1, |x, y| x * y);
+
         match t.get_data_type() {
             1 => Ok(Tensor::F32 {
                 values: if empty {
                     None
                 } else {
-                    Some(bytemuck::cast_slice(t.get_raw_data()).to_vec())
+                    if tlen == 0 {
+                        Some(vec![])
+                    } else {
+                        Some(bytemuck::cast_slice(t.get_raw_data()).to_vec())
+                    }
                 },
                 shape: t.get_dims().to_vec(),
             }),

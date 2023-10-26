@@ -12,7 +12,7 @@ pub struct ReluOp;
 
 impl Compile for &ReluOp {
     fn compile(&self, op: &Op, shader_source: &str, graph: &Graph) -> Result<String, String> {
-        compile_unary(op, shader_source, graph)
+        compile_unary(op, None, shader_source, graph)
     }
 
     fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {

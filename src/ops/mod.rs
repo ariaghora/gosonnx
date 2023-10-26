@@ -1,4 +1,5 @@
-pub mod add;
+pub mod bin_op;
+pub mod clip;
 pub mod conv;
 pub mod flatten;
 pub mod gemm;
@@ -6,7 +7,8 @@ pub mod maxpool;
 pub mod relu;
 
 use self::{
-    add::AddOp, conv::ConvOp, flatten::FlattenOp, gemm::GemmOp, maxpool::MaxPoolOp, relu::ReluOp,
+    bin_op::BinOpElementwise, clip::ClipOp, conv::ConvOp, flatten::FlattenOp, gemm::GemmOp,
+    maxpool::MaxPoolOp, relu::ReluOp,
 };
 use crate::{
     gpu::SHADER_DIR,
@@ -24,7 +26,8 @@ pub trait Compile {
 
 #[derive(Debug, Serialize)]
 pub enum OpType {
-    Add { attr: AddOp },
+    Add { attr: BinOpElementwise },
+    Clip { attr: ClipOp },
     Conv { attr: ConvOp },
     Flatten { attr: FlattenOp },
     Gemm { attr: GemmOp },
@@ -42,6 +45,7 @@ impl<'gr, 'gpu> OpType {
     ) -> Result<(String, [u32; 3]), String> {
         let (compiled, wg) = match self {
             OpType::Add { attr } => self._compile(attr, shader_source, op, graph)?,
+            OpType::Clip { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Conv { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Flatten { attr } => self._compile(attr, shader_source, op, graph)?,
             OpType::Gemm { attr } => self._compile(attr, shader_source, op, graph)?,
@@ -69,6 +73,7 @@ impl fmt::Display for OpType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             OpType::Add { .. } => write!(f, "Add"),
+            OpType::Clip { .. } => write!(f, "Clip"),
             OpType::Conv { .. } => write!(f, "Conv"),
             OpType::Flatten { .. } => write!(f, "Flatten"),
             OpType::Gemm { .. } => write!(f, "Gemm"),
@@ -82,7 +87,12 @@ impl fmt::Display for OpType {
 impl OpType {
     pub fn from_node_proto(node_proto: &NodeProto) -> Result<Self, String> {
         match node_proto.get_op_type() {
-            "Add" => Ok(Self::Add { attr: AddOp {} }),
+            "Add" => Ok(Self::Add {
+                attr: BinOpElementwise {},
+            }),
+            "Clip" => Ok(Self::Clip {
+                attr: ClipOp::new(get_attr_f(node_proto, "min"), get_attr_f(node_proto, "max")),
+            }),
             "Conv" => Ok(Self::Conv {
                 attr: ConvOp::new(
                     get_attr_ints(node_proto, "dilations").unwrap(),
@@ -113,7 +123,7 @@ impl OpType {
             }),
             "Relu" => Ok(Self::Relu { attr: ReluOp {} }),
             _ => Err(format!(
-                "ONNX op type {} is not supported yet",
+                "ONNX op type `{}` is not supported yet",
                 node_proto.get_op_type()
             )),
         }
@@ -125,7 +135,12 @@ pub fn to_csv_str<T: ToString>(vals: &Vec<T>) -> String {
     res.join(",")
 }
 
-pub fn compile_unary(op: &Op, _shader_source: &str, _graph: &Graph) -> Result<String, String> {
+pub fn compile_unary(
+    op: &Op,
+    attr: Option<Vec<(&str, String)>>,
+    _shader_source: &str,
+    _graph: &Graph,
+) -> Result<String, String> {
     let base_shader_source = SHADER_DIR
         .get_file("_unary_elementwise.glsl")
         .unwrap()
@@ -136,6 +151,7 @@ pub fn compile_unary(op: &Op, _shader_source: &str, _graph: &Graph) -> Result<St
         .unwrap()
         .contents_utf8()
         .unwrap();
+
     let mut tera = tera::Tera::default();
     let mut context = tera::Context::new();
 
@@ -143,6 +159,12 @@ pub fn compile_unary(op: &Op, _shader_source: &str, _graph: &Graph) -> Result<St
     let output = &_graph.tensor_map[&op.outputs[0]];
     context.insert("input_type", &input.type_glsl());
     context.insert("output_type", &output.type_glsl());
+
+    if let Some(attributes) = attr {
+        for (k, v) in attributes {
+            context.insert(k, &v);
+        }
+    }
 
     tera.add_raw_templates(vec![
         ("_unary_elementwise", base_shader_source),

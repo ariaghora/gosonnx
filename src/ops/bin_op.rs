@@ -3,9 +3,9 @@ use crate::utils::tensor_len;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
-pub struct AddOp;
+pub struct BinOpElementwise;
 
-impl Compile for &AddOp {
+impl Compile for &BinOpElementwise {
     fn compile(
         &self,
         op: &crate::graph::Op,
@@ -29,7 +29,6 @@ impl Compile for &AddOp {
 
 #[cfg(test)]
 mod test {
-
     use crate::{
         graph::{Graph, Tensor},
         ops::OpType,
@@ -47,7 +46,7 @@ mod test {
                 vec!["Y"],
                 "add",
                 OpType::Add {
-                    attr: super::AddOp {},
+                    attr: super::BinOpElementwise {},
                 },
             )
             .unwrap();

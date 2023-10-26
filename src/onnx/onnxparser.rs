@@ -67,7 +67,10 @@ pub(crate) fn parse_model_proto(model_proto: &mut ModelProto) -> Result<Graph> {
 
                 graph.op_map.insert(op.op_name.clone(), op);
             }
-            Err(e) => println!("{:#?}", e),
+            Err(e) => {
+                println!("{}", e);
+                // return Err(e);
+            }
         }
     }
     graph.compile().map_err(|e| anyhow!(e))?;
