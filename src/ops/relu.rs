@@ -29,7 +29,7 @@ mod test {
 
     use crate::{
         graph::{Graph, Tensor},
-        ops::OpType,
+        ops::{un_op::UnOpElementwise, OpType},
     };
 
     #[test]
@@ -43,7 +43,7 @@ mod test {
                 vec!["Y"],
                 "my_relu_1",
                 OpType::Relu {
-                    attr: super::ReluOp {},
+                    attr: UnOpElementwise::new(vec![]),
                 },
             )
             .unwrap();

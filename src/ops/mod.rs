@@ -36,7 +36,7 @@ pub enum OpType {
     Gemm { attr: GemmOp },
     MaxPool { attr: MaxPoolOp },
     Mul { attr: BinOpElementwise },
-    Relu { attr: ReluOp },
+    Relu { attr: UnOpElementwise },
     Sigmoid { attr: UnOpElementwise },
     Unknown,
 }
@@ -126,7 +126,9 @@ impl OpType {
             "Mul" => Ok(Self::Mul {
                 attr: BinOpElementwise {},
             }),
-            "Relu" => Ok(Self::Relu { attr: ReluOp {} }),
+            "Relu" => Ok(Self::Relu {
+                attr: UnOpElementwise::new(vec![]),
+            }),
             _ => Err(format!(
                 "ONNX op type `{}` is not supported yet",
                 node_proto.get_op_type()

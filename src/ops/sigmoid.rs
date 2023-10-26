@@ -2,8 +2,6 @@
 mod test {
     use std::error::Error;
 
-    use uuid::ClockSequence;
-
     use crate::{
         graph::{Graph, Tensor},
         ops::{un_op::UnOpElementwise, OpType},

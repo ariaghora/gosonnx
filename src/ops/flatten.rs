@@ -74,7 +74,7 @@ impl Compile for &FlattenOp {
 mod test {
     use crate::{
         graph::{Graph, Tensor},
-        ops::{relu::ReluOp, OpType},
+        ops::{relu::ReluOp, un_op::UnOpElementwise, OpType},
     };
 
     use super::FlattenOp;
@@ -142,7 +142,9 @@ mod test {
                 vec!["Y"],
                 vec!["Z"],
                 "relu",
-                OpType::Relu { attr: ReluOp {} },
+                OpType::Relu {
+                    attr: UnOpElementwise::new(vec![]),
+                },
             )
             .unwrap();
         graph.run().unwrap();
