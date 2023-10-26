@@ -74,7 +74,7 @@ impl Compile for &FlattenOp {
 mod test {
     use crate::{
         graph::{Graph, Tensor},
-        ops::{relu::ReluOp, un_op::UnOpElementwise, OpType},
+        ops::{un_op::UnOpElementwise, OpType},
     };
 
     use super::FlattenOp;

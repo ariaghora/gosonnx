@@ -9,10 +9,11 @@ mod sigmoid;
 mod un_op;
 
 use self::{
-    bin_op::BinOpElementwise, clip::ClipOp, conv::ConvOp, flatten::FlattenOp, gemm::GemmOp,
-    maxpool::MaxPoolOp, relu::ReluOp, un_op::UnOpElementwise,
+    bin_op::BinOpElementwise, conv::ConvOp, flatten::FlattenOp, gemm::GemmOp, maxpool::MaxPoolOp,
+    un_op::UnOpElementwise,
 };
 use crate::{
+    attribute,
     gpu::SHADER_DIR,
     graph::{Graph, Op},
     onnx::onnx::NodeProto,
@@ -29,7 +30,7 @@ pub trait Compile {
 #[derive(Debug, Serialize)]
 pub enum OpType {
     Add { attr: BinOpElementwise },
-    Clip { attr: ClipOp },
+    Clip { attr: UnOpElementwise },
     Conv { attr: ConvOp },
     Div { attr: BinOpElementwise },
     Flatten { attr: FlattenOp },
@@ -85,13 +86,24 @@ impl fmt::Display for OpType {
 
 impl OpType {
     pub fn from_node_proto(node_proto: &NodeProto) -> Result<Self, String> {
+        // attribute!()
         match node_proto.get_op_type() {
             "Add" => Ok(Self::Add {
                 attr: BinOpElementwise {},
             }),
-            "Clip" => Ok(Self::Clip {
-                attr: ClipOp::new(get_attr_f(node_proto, "min"), get_attr_f(node_proto, "max")),
-            }),
+            "Clip" => {
+                let mut attrs = vec![];
+                if let Some(v) = get_attr_f(node_proto, "min") {
+                    attrs.push(attribute!("min_val", v))
+                }
+                if let Some(v) = get_attr_f(node_proto, "max") {
+                    attrs.push(attribute!("max_val", v))
+                }
+
+                Ok(Self::Clip {
+                    attr: UnOpElementwise::new(attrs),
+                })
+            }
             "Conv" => Ok(Self::Conv {
                 attr: ConvOp::new(
                     get_attr_ints(node_proto, "dilations").unwrap(),

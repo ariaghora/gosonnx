@@ -1,4 +1,5 @@
-macro_rules! attr {
+#[macro_export]
+macro_rules! attribute {
     ($key:expr, $value:expr) => {
         (
             $key.to_string(),

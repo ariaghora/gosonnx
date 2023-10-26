@@ -36,7 +36,14 @@ impl UnOpElementwise {
 
 impl Compile for &UnOpElementwise {
     fn compile(&self, op: &Op, shader_source: &str, graph: &Graph) -> Result<String, String> {
-        compile_unary(op, None, shader_source, graph)
+        let attrs: Vec<(&str, String)> = self
+            .attrs
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.to_string()))
+            .collect();
+        let compiled = compile_unary(op, Some(attrs), shader_source, graph);
+
+        compiled
     }
 
     fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {
