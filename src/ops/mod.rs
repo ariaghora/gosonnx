@@ -1,3 +1,4 @@
+mod add;
 pub mod bin_op;
 pub mod clip;
 pub mod conv;
@@ -5,6 +6,7 @@ pub mod flatten;
 pub mod gemm;
 mod hard_sigmoid;
 pub mod maxpool;
+mod mul;
 pub mod relu;
 mod sigmoid;
 mod un_op;
@@ -160,39 +162,6 @@ pub fn compile_unary(
 
     tera.add_raw_templates(vec![
         ("_unary_elementwise", base_shader_source),
-        (&op.op_type.to_string(), unary_shader_source),
-    ])
-    .map_err(|e| e.to_string())?;
-
-    let compiled = tera
-        .render(&op.op_type.to_string(), &mut context)
-        .map_err(|e| e.to_string())?;
-    Ok(compiled)
-}
-
-pub fn compile_binary(op: &Op, _shader_source: &str, _graph: &Graph) -> Result<String, String> {
-    let base_shader_source = SHADER_DIR
-        .get_file("_binary_elementwise.glsl")
-        .unwrap()
-        .contents_utf8()
-        .unwrap();
-    let unary_shader_source = SHADER_DIR
-        .get_file(&format!("{}.glsl", op.op_type.to_string()))
-        .unwrap()
-        .contents_utf8()
-        .unwrap();
-    let mut tera = tera::Tera::default();
-    let mut context = tera::Context::new();
-
-    let input_1 = &_graph.tensor_map[&op.inputs[0]];
-    let input_2 = &_graph.tensor_map[&op.inputs[1]];
-    let output = &_graph.tensor_map[&op.outputs[0]];
-    context.insert("input_1_type", &input_1.type_glsl());
-    context.insert("input_2_type", &input_2.type_glsl());
-    context.insert("output_type", &output.type_glsl());
-
-    tera.add_raw_templates(vec![
-        ("_binary_elementwise", base_shader_source),
         (&op.op_type.to_string(), unary_shader_source),
     ])
     .map_err(|e| e.to_string())?;
