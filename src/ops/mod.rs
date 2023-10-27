@@ -1,19 +1,20 @@
-mod add;
+pub mod add;
 pub mod bin_op;
 pub mod clip;
 pub mod conv;
 pub mod flatten;
 pub mod gemm;
-mod hard_sigmoid;
+pub mod global_average_pool;
+pub mod hard_sigmoid;
 pub mod maxpool;
-mod mul;
+pub mod mul;
 pub mod relu;
-mod sigmoid;
-mod un_op;
+pub mod sigmoid;
+pub mod un_op;
 
 use self::{
-    bin_op::BinOpElementwise, conv::ConvOp, flatten::FlattenOp, gemm::GemmOp, maxpool::MaxPoolOp,
-    un_op::UnOpElementwise,
+    bin_op::BinOpElementwise, conv::ConvOp, flatten::FlattenOp, gemm::GemmOp,
+    global_average_pool::GlobalAveragePoolOp, maxpool::MaxPoolOp, un_op::UnOpElementwise,
 };
 use crate::{
     attribute, define_ops,
@@ -37,6 +38,9 @@ define_ops!(
     Div { BinOpElementwise },
     Flatten { FlattenOp },
     Gemm { GemmOp },
+    GlobalAveragePool {
+        GlobalAveragePoolOp
+    },
     HardSigmoid { UnOpElementwise },
     MaxPool { MaxPoolOp },
     Mul { BinOpElementwise },
