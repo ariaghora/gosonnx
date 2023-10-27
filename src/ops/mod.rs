@@ -14,7 +14,7 @@ use self::{
     un_op::UnOpElementwise,
 };
 use crate::{
-    attribute,
+    attribute, define_ops,
     gpu::SHADER_DIR,
     graph::{Graph, Op},
     onnx::onnx::NodeProto,
@@ -28,73 +28,22 @@ pub trait Compile {
     fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3];
 }
 
-#[derive(Debug, Serialize)]
-pub enum OpType {
-    Add { attr: BinOpElementwise },
-    Clip { attr: UnOpElementwise },
-    Conv { attr: ConvOp },
-    Div { attr: BinOpElementwise },
-    Flatten { attr: FlattenOp },
-    Gemm { attr: GemmOp },
-    HardSigmoid { attr: UnOpElementwise },
-    MaxPool { attr: MaxPoolOp },
-    Mul { attr: BinOpElementwise },
-    Relu { attr: UnOpElementwise },
-    Sigmoid { attr: UnOpElementwise },
-    //
-    // Default OpType when creating a node
-    Unknown,
-}
-
-impl<'gr, 'gpu> OpType {
-    pub fn compile(
-        &self,
-        shader_source: &str,
-        op: &'gr Op,
-        graph: &'gr Graph,
-    ) -> Result<(String, [u32; 3]), String> {
-        let (compiled, wg) = match self {
-            OpType::Add { attr } => self._compile(attr, shader_source, op, graph)?,
-            OpType::Clip { attr } => self._compile(attr, shader_source, op, graph)?,
-            OpType::Conv { attr } => self._compile(attr, shader_source, op, graph)?,
-            OpType::Div { attr } => self._compile(attr, shader_source, op, graph)?,
-            OpType::Flatten { attr } => self._compile(attr, shader_source, op, graph)?,
-            OpType::Gemm { attr } => self._compile(attr, shader_source, op, graph)?,
-            OpType::HardSigmoid { attr } => self._compile(attr, shader_source, op, graph)?,
-            OpType::MaxPool { attr } => self._compile(attr, shader_source, op, graph)?,
-            OpType::Mul { attr } => self._compile(attr, shader_source, op, graph)?,
-            OpType::Relu { attr } => self._compile(attr, shader_source, op, graph)?,
-            OpType::Sigmoid { attr } => self._compile(attr, shader_source, op, graph)?,
-            //
-            // Default OpType when creating a node
-            OpType::Unknown => return Err(format!("Op `{:?}` is unsupported yet", op.op_type)),
-        };
-        Ok((compiled, wg))
-    }
-}
-
-impl fmt::Display for OpType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            OpType::Add { .. } => write!(f, "Add"),
-            OpType::Clip { .. } => write!(f, "Clip"),
-            OpType::Conv { .. } => write!(f, "Conv"),
-            OpType::Div { .. } => write!(f, "Div"),
-            OpType::Flatten { .. } => write!(f, "Flatten"),
-            OpType::Gemm { .. } => write!(f, "Gemm"),
-            OpType::HardSigmoid { .. } => write!(f, "HardSigmoid"),
-            OpType::MaxPool { .. } => write!(f, "MaxPool"),
-            OpType::Mul { .. } => write!(f, "Mul"),
-            OpType::Relu { .. } => write!(f, "Relu"),
-            OpType::Sigmoid { .. } => write!(f, "Sigmoid"),
-            OpType::Unknown => write!(f, "Unknown"),
-        }
-    }
-}
+define_ops!(
+    Add { BinOpElementwise },
+    Clip { UnOpElementwise },
+    Conv { ConvOp },
+    Div { BinOpElementwise },
+    Flatten { FlattenOp },
+    Gemm { GemmOp },
+    HardSigmoid { UnOpElementwise },
+    MaxPool { MaxPoolOp },
+    Mul { BinOpElementwise },
+    Relu { UnOpElementwise },
+    Sigmoid { UnOpElementwise }
+);
 
 impl OpType {
     pub fn from_node_proto(node_proto: &NodeProto) -> Result<Self, String> {
-        // attribute!()
         match node_proto.get_op_type() {
             "Add" => Ok(Self::Add {
                 attr: BinOpElementwise {},

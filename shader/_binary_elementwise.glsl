@@ -27,7 +27,7 @@ void main() {
     // will be filled with templates that extend this. For example:
     // 
     // ```
-    // output = max(val, 0.0);
+    // output = left + right;
     // ```
     {% endblock implementation %}
     
