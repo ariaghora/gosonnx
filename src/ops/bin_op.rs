@@ -1,5 +1,3 @@
-use std::iter;
-
 use super::Compile;
 use crate::{
     gpu::SHADER_DIR,
