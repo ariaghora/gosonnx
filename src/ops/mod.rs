@@ -23,7 +23,7 @@ use crate::{
     gpu::SHADER_DIR,
     graph::{Graph, Op},
     onnx::onnx::NodeProto,
-    utils::{get_attr_f, get_attr_i, get_attr_ints},
+    utils::{get_attr_f, get_attr_i, get_attr_ints, get_attr_string},
 };
 use serde::Serialize;
 use std::fmt;
@@ -56,6 +56,16 @@ impl OpType {
         match node_proto.get_op_type() {
             "Add" => Ok(Self::Add {
                 attr: BinOpElementwise {},
+            }),
+            "AveragePool" => Ok(Self::AveragePool {
+                attr: AveragePoolOp::new(
+                    get_attr_string(node_proto, "auto_pad"),
+                    get_attr_i(node_proto, "ceil_mode"),
+                    get_attr_ints(node_proto, "dilations"),
+                    get_attr_ints(node_proto, "kernel_shape"),
+                    get_attr_ints(node_proto, "pads"),
+                    get_attr_ints(node_proto, "strides"),
+                ),
             }),
             "Clip" => Ok(Self::Clip {
                 attr: UnOpElementwise::new(vec![

@@ -27,6 +27,15 @@ pub fn get_attr_i<'a>(node_proto: &'a NodeProto, attr_name: &str) -> Option<i64>
     None
 }
 
+pub fn get_attr_string<'a>(node_proto: &'a NodeProto, attr_name: &str) -> Option<String> {
+    for attr in node_proto.get_attribute() {
+        if attr.get_name() == attr_name {
+            return Some(String::from_utf8(attr.get_s().to_vec()).unwrap());
+        }
+    }
+    None
+}
+
 pub fn tensor_len(t: &Tensor) -> Result<usize, String> {
     let len = match t {
         Tensor::F32 { values: _, shape } => shape,
