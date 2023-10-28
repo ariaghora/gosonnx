@@ -1,17 +1,17 @@
-mod add;
-mod average_pool;
-mod bin_op;
-mod clip;
-mod conv;
-mod flatten;
-mod gemm;
-mod global_average_pool;
-mod hard_sigmoid;
-mod maxpool;
-mod mul;
-mod relu;
-mod sigmoid;
-mod un_op;
+pub mod add;
+pub mod average_pool;
+pub mod bin_op;
+pub mod clip;
+pub mod conv;
+pub mod flatten;
+pub mod gemm;
+pub mod global_average_pool;
+pub mod hard_sigmoid;
+pub mod maxpool;
+pub mod mul;
+pub mod relu;
+pub mod sigmoid;
+pub mod un_op;
 
 use self::{
     average_pool::AveragePoolOp, bin_op::BinOpElementwise, conv::ConvOp, flatten::FlattenOp,

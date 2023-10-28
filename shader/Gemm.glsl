@@ -44,12 +44,14 @@ void main() {
         for (uint i = 0u; i < k; ++i) {
             {{a_type}} a;
             {{b_type}} b;
-            if ({{trans_a}} == 1) {
+            if (trans_a == 1) {
+                // A transposed
                 a = left[i * m + global_y];
             } else {
                 a = left[global_y * k + i];
             }
-            if ({{trans_b}} == 1) {
+            if (trans_b == 1) {
+                // B transposed
                 b = right[global_x * k + i];
             } else {
                 b = right[i * n + global_x];

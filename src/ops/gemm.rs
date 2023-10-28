@@ -55,9 +55,20 @@ impl Compile for &GemmOp {
         context.insert("a_type", &a_type);
         context.insert("b_type", &b_type);
 
-        context.insert("m", &t_a.shape()[0]);
-        context.insert("k", &t_a.shape()[1]);
-        context.insert("n", &t_b.shape()[1]);
+        let m = if self.trans_a == Some(0) {
+            t_a.shape()[0]
+        } else {
+            t_a.shape()[1]
+        };
+        let (k, n) = if self.trans_b == Some(0) {
+            (t_b.shape()[0], t_b.shape()[1])
+        } else {
+            (t_b.shape()[1], t_b.shape()[0])
+        };
+
+        context.insert("m", &m);
+        context.insert("k", &k);
+        context.insert("n", &n);
 
         if op.inputs.len() > 2 {
             if let Some(bias) = &graph.tensor_map.get(&op.inputs[2]) {
@@ -80,6 +91,7 @@ impl Compile for &GemmOp {
         let rendered = tera
             .render(&op.op_type.to_string(), &context)
             .map_err(|e| e.to_string());
+        // println!("{:}", rendered.clone().unwrap());
         rendered
     }
 
@@ -247,6 +259,38 @@ mod tests {
         if let Some(t) = graph.get_output("output") {
             if let Tensor::F32 { values, .. } = t {
                 assert_eq!(values, &Some(vec![7.0, 7.0, 14.0, 14.0]));
+            } else {
+                panic!("Invalid tensor found")
+            }
+        } else {
+            panic!("No output found")
+        }
+    }
+    #[test]
+    fn gemm_3x3_trans_b() {
+        let mut graph = Graph::new();
+        graph.new_tensor_f32("X", Some((1..=9).map(|v| v as f32).collect()), vec![3, 3]);
+        graph.new_tensor_f32("Y", Some((1..=9).map(|v| v as f32).collect()), vec![3, 3]);
+        graph.new_tensor_f32("output", None, vec![3, 3]);
+        graph
+            .new_op(
+                vec!["X", "Y"],
+                vec!["output"],
+                "my_gemm",
+                OpType::Gemm {
+                    attr: super::GemmOp::new(Some(1.0), Some(1.0), Some(0), Some(1)),
+                },
+            )
+            .unwrap();
+        graph.run().unwrap();
+        if let Some(t) = graph.get_output("output") {
+            if let Tensor::F32 { values, .. } = t {
+                assert_eq!(
+                    values,
+                    &Some(vec![
+                        14.0, 32.0, 50.0, 32.0, 77.0, 122.0, 50.0, 122.0, 194.0
+                    ])
+                );
             } else {
                 panic!("Invalid tensor found")
             }

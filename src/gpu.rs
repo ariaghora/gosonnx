@@ -3,6 +3,7 @@ use crate::utils::tensor_len;
 use include_dir::{include_dir, Dir};
 use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 use wgpu::util::DeviceExt;
+use wgpu::Limits;
 
 pub static SHADER_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/shader");
 
@@ -237,7 +238,7 @@ impl GPUExecutor {
         });
 
         let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some(&format!("bindgroup_{}", op.op_type)),
+            label: Some(&format!("bindgroup_{}_{}", op.op_name, op.op_type)),
             layout: &bindgroup_layout,
             entries: &bindgroup_entries.as_slice(),
         });
@@ -260,17 +261,24 @@ impl GPUExecutor {
             .await
             .unwrap();
         let features = adapter.features();
+        let mut limits = Limits::default();
+        limits.max_storage_buffer_binding_size = 256 << 20;
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
                     features: features & wgpu::Features::TIMESTAMP_QUERY,
-                    limits: Default::default(),
+                    limits: limits,
                 },
                 None,
             )
             .await
             .unwrap();
+
+        // println!(
+        //     "BUF LIMIT: {}",
+        //     device.l
+        // );
 
         Ok((device, queue))
     }
