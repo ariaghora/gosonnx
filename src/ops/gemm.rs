@@ -6,14 +6,19 @@ use super::Compile;
 
 #[derive(Debug, Serialize)]
 pub struct GemmOp {
-    alpha: f32,
-    beta: f32,
-    trans_a: i64,
-    trans_b: i64,
+    alpha: Option<f32>,
+    beta: Option<f32>,
+    trans_a: Option<i64>,
+    trans_b: Option<i64>,
 }
 
 impl GemmOp {
-    pub fn new(alpha: f32, beta: f32, trans_a: i64, trans_b: i64) -> Self {
+    pub fn new(
+        alpha: Option<f32>,
+        beta: Option<f32>,
+        trans_a: Option<i64>,
+        trans_b: Option<i64>,
+    ) -> Self {
         Self {
             alpha,
             beta,
@@ -32,10 +37,10 @@ impl Compile for &GemmOp {
             .map_err(|e| e.to_string())?;
 
         context.insert("use_bias", &(op.inputs.len() > 2));
-        context.insert("alpha", &self.alpha);
-        context.insert("beta", &self.beta);
-        context.insert("trans_a", &self.trans_a);
-        context.insert("trans_b", &self.trans_b);
+        context.insert("alpha", &self.alpha.unwrap_or(1.0));
+        context.insert("beta", &self.beta.unwrap_or(1.0));
+        context.insert("trans_a", &self.trans_a.unwrap_or(0));
+        context.insert("trans_b", &self.trans_b.unwrap_or(0));
 
         let t_a = &graph.tensor_map[&op.inputs[0]];
         let t_b = &graph.tensor_map[&op.inputs[1]];
@@ -111,7 +116,7 @@ mod tests {
                 vec!["output"],
                 "my_gemm",
                 OpType::Gemm {
-                    attr: super::GemmOp::new(1.0, 1.0, 0, 0),
+                    attr: super::GemmOp::new(Some(1.0), Some(1.0), Some(0), Some(0)),
                 },
             )
             .unwrap();
@@ -139,7 +144,7 @@ mod tests {
                 vec!["output"],
                 "my_gemm",
                 OpType::Gemm {
-                    attr: super::GemmOp::new(1.0, 1.0, 0, 0),
+                    attr: super::GemmOp::new(Some(1.0), Some(1.0), Some(0), Some(0)),
                 },
             )
             .unwrap();
@@ -171,7 +176,7 @@ mod tests {
                 vec!["output"],
                 "my_gemm",
                 OpType::Gemm {
-                    attr: super::GemmOp::new(1.0, 1.0, 0, 0),
+                    attr: super::GemmOp::new(Some(1.0), Some(1.0), Some(0), Some(0)),
                 },
             )
             .unwrap();
@@ -205,7 +210,7 @@ mod tests {
                 vec!["output"],
                 "my_gemm",
                 OpType::Gemm {
-                    attr: super::GemmOp::new(1.0, 1.0, 0, 0),
+                    attr: super::GemmOp::new(Some(1.0), Some(1.0), Some(0), Some(0)),
                 },
             )
             .unwrap();
@@ -234,7 +239,7 @@ mod tests {
                 vec!["output"],
                 "my_gemm",
                 OpType::Gemm {
-                    attr: super::GemmOp::new(1.0, 1.0, 0, 0),
+                    attr: super::GemmOp::new(Some(1.0), Some(1.0), Some(0), Some(0)),
                 },
             )
             .unwrap();

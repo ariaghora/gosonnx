@@ -87,10 +87,10 @@ impl OpType {
             }),
             "Gemm" => Ok(Self::Gemm {
                 attr: GemmOp::new(
-                    get_attr_f(node_proto, "alpha").unwrap(),
-                    get_attr_f(node_proto, "beta").unwrap(),
-                    get_attr_i(node_proto, "transA").unwrap(),
-                    get_attr_i(node_proto, "transB").unwrap(),
+                    get_attr_f(node_proto, "alpha"),
+                    get_attr_f(node_proto, "beta"),
+                    get_attr_i(node_proto, "transA"),
+                    get_attr_i(node_proto, "transB"),
                 ),
             }),
             "HardSigmoid" => Ok(Self::HardSigmoid {
