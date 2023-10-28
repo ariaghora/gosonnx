@@ -72,21 +72,11 @@ impl Compile for &ConvOp {
         let output_dims = &graph.tensor_map[&op.outputs[0]].shape();
         let local_size_x_y = 16;
 
-        // Number of threads needed based on output shape
-        let num_threads = output_dims[0] * output_dims[2] * output_dims[3];
+        let workgroup_size_x = ((output_dims[3] as f64) / (local_size_x_y as f64)).ceil() as u32; // width
+        let workgroup_size_y = ((output_dims[2] as f64) / (local_size_x_y as f64)).ceil() as u32; // height
+        let workgroup_size_z = output_dims[0] as u32 * output_dims[1] as u32; // batch * channels
 
-        // Number of threads per workgroup
-        let threads_per_workgroup = local_size_x_y * local_size_x_y;
-
-        // Number of workgroups needed
-        let num_workgroups =
-            (num_threads + threads_per_workgroup as i64 - 1) / threads_per_workgroup as i64;
-
-        // Distribute workgroups evenly across two dimensions
-        let workgroup_size_x = (num_workgroups as f64).sqrt().ceil() as i64;
-        let workgroup_size_y = (num_workgroups + workgroup_size_x - 1) / workgroup_size_x;
-
-        [workgroup_size_x as u32, workgroup_size_y as u32, 1]
+        [workgroup_size_x, workgroup_size_y, workgroup_size_z]
     }
 }
 

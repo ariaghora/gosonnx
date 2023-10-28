@@ -46,27 +46,28 @@ int get_kernel_pos(int x, int y, int ic, int oc) {
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z=1) in;
 void main() {
-    int global_x = int(gl_GlobalInvocationID.x);
+int global_x = int(gl_GlobalInvocationID.x);
     int global_y = int(gl_GlobalInvocationID.y);
     int global_z = int(gl_GlobalInvocationID.z);
-    int output_height = (in_dim[2] + 2 * pads[0] - kernel_shape[0]) / strides[0] + 1;
-    int output_width = (in_dim[3] + 2 * pads[1] - kernel_shape[1]) / strides[1] + 1;
 
-    if (global_x < output_width && global_y < output_height && global_z < out_dim[0]) {
+    if (global_x < out_dim[3] && global_y < out_dim[2] && global_z < out_dim[0]) {
         for (int oc = 0; oc < output_channels; oc++) {
             int out_idx = get_output_pos(global_z, global_x, global_y, oc);
-            {% if use_bias %}
-            Y[out_idx] = B[oc];
-            {% else %}
-            Y[out_idx] = 0.0;
-            {% endif %}
-
+            
+            if(out_idx < out_dim[0] * out_dim[1] * out_dim[2] * out_dim[3]) {
+                {% if use_bias %}
+                Y[out_idx] = B[oc];
+                {% else %}
+                Y[out_idx] = 0.0;
+                {% endif %}
+            }
+            
             for (int ic = 0; ic < in_dim[1]; ic++) {
                 for (int ky = 0; ky < kernel_shape[0]; ky++) {
                     for (int kx = 0; kx < kernel_shape[1]; kx++) {
                         int in_x = global_x * strides[0] - pads[0] + kx;
                         int in_y = global_y * strides[1] - pads[1] + ky;
-
+                        
                         if (in_x >= 0 && in_x < in_dim[3] && in_y >= 0 && in_y < in_dim[2]) {
                             int in_idx = get_input_pos(global_z, in_x, in_y, ic);
                             int k_idx = get_kernel_pos(kx, ky, ic, oc);
