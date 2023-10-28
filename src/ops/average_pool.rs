@@ -70,7 +70,7 @@ impl Compile for &AveragePoolOp {
             return Err("Kernel shape is mandatory but not provided".into());
         };
 
-        let pads = &self.pads.clone().unwrap_or(vec![1, 1, 1, 1]);
+        let pads = &self.pads.clone().unwrap_or(vec![0, 0, 0, 0]);
         let strides = &self.strides.clone().unwrap_or(vec![1, 1]);
 
         context.insert("auto_pad", &auto_pad);
