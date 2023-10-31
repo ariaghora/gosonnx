@@ -33,6 +33,9 @@ impl ConvOp {
 
 impl Compile for &ConvOp {
     fn compile(&self, op: &Op, shader_template: &str, graph: &Graph) -> Result<String, String> {
+        if self.group > 1 {
+            return Err("Only group=1 is supported".into());
+        }
         let mut tera = tera::Tera::default();
         let mut context = tera::Context::new();
         tera.add_raw_template("Conv", shader_template)
