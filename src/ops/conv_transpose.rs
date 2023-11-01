@@ -115,6 +115,7 @@ mod test {
     use crate::{
         graph::{Graph, Tensor},
         ops::OpType,
+        utils::vec_close,
     };
 
     use super::ConvTransposeOp;
@@ -147,12 +148,10 @@ mod test {
         graph.run().unwrap();
         let out = graph.get_output("Y").unwrap();
         if let Tensor::F32 { values, .. } = out {
-            assert_eq!(
-                values,
-                &Some(vec![
-                    0.6000, 0.9000, 0.9000, 1.1000, 2.5000, 2.1000, 1.4000, 2.9000, 2.1000
-                ])
-            );
+            assert!(vec_close(
+                values.as_ref().unwrap().clone(),
+                vec![0.6000, 0.9000, 0.9000, 1.1000, 2.5000, 2.1000, 1.4000, 2.9000, 2.1000]
+            ));
         }
     }
 
@@ -205,9 +204,9 @@ mod test {
         graph.run().unwrap();
         let out = graph.get_output("Y").unwrap();
         if let Tensor::F32 { values, .. } = out {
-            assert_eq!(
-                values,
-                &Some(vec![
+            assert!(vec_close(
+                values.as_ref().unwrap().clone(),
+                vec![
                     225.5000, 463.4000, 714.5000, 731.6000, 748.7000, 513.8000, 264.5000, 500.0000,
                     1027.7000, 1584.2000, 1621.1000, 1658.0000, 1136.8999, 584.6000, 828.5000,
                     1702.3999, 2623.0999, 2682.5000, 2741.9001, 1878.7999, 965.3000, 923.0000,
@@ -222,8 +221,8 @@ mod test {
                     2745.5000, 4213.3999, 4297.0996, 4380.7998, 2988.5000, 1528.7000, 981.5000,
                     2006.9000, 3077.3000, 3135.7998, 3194.3003, 2177.3000, 1112.9000, 536.0000,
                     1094.9000, 1677.5000, 1708.1000, 1738.7000, 1184.3000, 605.0000
-                ])
-            );
+                ]
+            ));
         }
     }
 }

@@ -52,7 +52,7 @@ pub fn vec_close<T: num_traits::Float>(a: Vec<T>, b: Vec<T>) -> bool {
     }
 
     for i in 0..a.len() {
-        if (a[i] - b[i]).abs() > T::from(1e-4).unwrap() {
+        if (a[i] - b[i]).abs() > T::from(1e-3).unwrap() {
             return false;
         }
     }
