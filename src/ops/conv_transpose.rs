@@ -94,7 +94,6 @@ impl Compile for &ConvTransposeOp {
         let compiled = tera
             .render("ConvTranspose", &context)
             .map_err(|e| e.to_string())?;
-        println!("{}", compiled);
         Ok(compiled)
     }
 
