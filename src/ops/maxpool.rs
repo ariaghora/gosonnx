@@ -5,7 +5,7 @@ use crate::{
     ops::to_csv_str,
 };
 
-use super::Compile;
+use super::{Compile, ShaderTemplate};
 
 #[derive(Debug, Serialize)]
 pub struct MaxPoolOp {
@@ -30,33 +30,23 @@ impl Compile for &MaxPoolOp {
     fn compile(
         &self,
         op: &crate::graph::Op,
-        shader_source: &str,
+        shader_templ: &mut ShaderTemplate,
         graph: &crate::graph::Graph,
-    ) -> Result<String, String> {
-        let mut tera = tera::Tera::default();
-        let mut context = tera::Context::new();
-
-        tera.add_raw_template("MaxPool", shader_source)
-            .map_err(|e| e.to_string())?;
-
+    ) -> Result<(), String> {
         let x = &graph.tensor_map[&op.inputs[0]];
         let y = &graph.tensor_map[&op.outputs[0]];
 
-        context.insert("X_type", &x.type_glsl());
-        context.insert("Y_type", &y.type_glsl());
-        context.insert("in_dim", &to_csv_str(&x.shape()));
-        context.insert("out_dim", &to_csv_str(&y.shape()));
+        shader_templ.push_attr("X_type", &x.type_glsl());
+        shader_templ.push_attr("Y_type", &y.type_glsl());
+        shader_templ.push_attr("in_dim", &to_csv_str(&x.shape()));
+        shader_templ.push_attr("out_dim", &to_csv_str(&y.shape()));
 
-        context.insert("ceil_mode", &self.ceil_mode);
-        context.insert("kernel_shape", &to_csv_str(&self.kernel_shape));
-        context.insert("pads", &to_csv_str(&self.pads));
-        context.insert("strides", &to_csv_str(&self.strides));
+        shader_templ.push_attr("ceil_mode", &self.ceil_mode.to_string());
+        shader_templ.push_attr("kernel_shape", &to_csv_str(&self.kernel_shape));
+        shader_templ.push_attr("pads", &to_csv_str(&self.pads));
+        shader_templ.push_attr("strides", &to_csv_str(&self.strides));
 
-        let compiled = tera
-            .render("MaxPool", &mut context)
-            .map_err(|e| e.to_string())?;
-
-        Ok(compiled)
+        Ok(())
     }
 
     fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {

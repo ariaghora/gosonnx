@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::graph::{Graph, Op};
 
-use super::{to_csv_str, Compile};
+use super::{to_csv_str, Compile, ShaderTemplate};
 
 #[derive(Debug, Serialize)]
 pub struct AveragePoolOp {
@@ -37,15 +37,9 @@ impl Compile for &AveragePoolOp {
     fn compile(
         &self,
         op: &crate::graph::Op,
-        shader_source: &str,
+        shader_templ: &mut ShaderTemplate,
         graph: &crate::graph::Graph,
-    ) -> Result<String, String> {
-        let mut tera = tera::Tera::default();
-        let mut context = tera::Context::new();
-
-        tera.add_raw_template("AveragePool", shader_source)
-            .map_err(|e| e.to_string())?;
-
+    ) -> Result<(), String> {
         let x = &graph.tensor_map[&op.inputs[0]];
         let y = &graph.tensor_map[&op.outputs[0]];
 
@@ -56,10 +50,10 @@ impl Compile for &AveragePoolOp {
             ));
         }
 
-        context.insert("X_type", &x.type_glsl());
-        context.insert("Y_type", &y.type_glsl());
-        context.insert("in_dim", &to_csv_str(&x.shape()));
-        context.insert("out_dim", &to_csv_str(&y.shape()));
+        shader_templ.push_attr("X_type", &x.type_glsl());
+        shader_templ.push_attr("Y_type", &y.type_glsl());
+        shader_templ.push_attr("in_dim", &to_csv_str(&x.shape()));
+        shader_templ.push_attr("out_dim", &to_csv_str(&y.shape()));
 
         let auto_pad = &self.auto_pad.clone().unwrap_or("NOTSET".to_string());
         let ceil_mode = &self.ceil_mode.unwrap_or(0);
@@ -73,18 +67,14 @@ impl Compile for &AveragePoolOp {
         let pads = &self.pads.clone().unwrap_or(vec![0, 0, 0, 0]);
         let strides = &self.strides.clone().unwrap_or(vec![1, 1]);
 
-        context.insert("auto_pad", &auto_pad);
-        context.insert("ceil_mode", &ceil_mode);
-        context.insert("dilations", &to_csv_str(dilations));
-        context.insert("kernel_shape", &to_csv_str(kernel_shape));
-        context.insert("pads", &to_csv_str(pads));
-        context.insert("strides", &to_csv_str(strides));
+        shader_templ.push_attr("auto_pad", &auto_pad);
+        shader_templ.push_attr("ceil_mode", &ceil_mode);
+        shader_templ.push_attr("dilations", &to_csv_str(dilations));
+        shader_templ.push_attr("kernel_shape", &to_csv_str(kernel_shape));
+        shader_templ.push_attr("pads", &to_csv_str(pads));
+        shader_templ.push_attr("strides", &to_csv_str(strides));
 
-        let compiled = tera
-            .render("AveragePool", &mut context)
-            .map_err(|e| e.to_string())?;
-
-        Ok(compiled)
+        Ok(())
     }
 
     fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {

@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::graph::{Graph, Op};
 
-use super::{to_csv_str, Compile};
+use super::{to_csv_str, Compile, ShaderTemplate};
 
 #[derive(Debug, Serialize)]
 pub struct ConvTransposeOp {
@@ -38,63 +38,61 @@ impl ConvTransposeOp {
 }
 
 impl Compile for &ConvTransposeOp {
-    fn compile(&self, op: &Op, shader_template: &str, graph: &Graph) -> Result<String, String> {
+    fn compile(
+        &self,
+        op: &Op,
+        shader_template: &mut ShaderTemplate,
+        graph: &Graph,
+    ) -> Result<(), String> {
         if let Some(g) = self.group {
             if g > 1 {
                 return Err("Only group=1 is supported".into());
             }
         }
-        let mut tera = tera::Tera::default();
-        let mut context = tera::Context::new();
-        tera.add_raw_template("ConvTranspose", shader_template)
-            .map_err(|e| e.to_string())?;
 
         let x = &graph.tensor_map[&op.inputs[0]];
         let w = &graph.tensor_map[&op.inputs[1]];
         let y = &graph.tensor_map[&op.outputs[0]];
 
-        context.insert("X_type", &x.type_glsl());
-        context.insert("W_type", &w.type_glsl());
+        shader_template.push_attr("X_type", &x.type_glsl());
+        shader_template.push_attr("W_type", &w.type_glsl());
         // Output type is assumed to be identical with input type
-        context.insert("Y_type", &x.type_glsl());
+        shader_template.push_attr("Y_type", &x.type_glsl());
 
-        context.insert("in_dim", &to_csv_str(&x.shape()));
-        context.insert("weight_dim", &to_csv_str(&w.shape()));
-        context.insert("out_dim", &to_csv_str(&y.shape()));
+        shader_template.push_attr("in_dim", &to_csv_str(&x.shape()));
+        shader_template.push_attr("weight_dim", &to_csv_str(&w.shape()));
+        shader_template.push_attr("out_dim", &to_csv_str(&y.shape()));
 
-        context.insert(
+        shader_template.push_attr(
             "dilations",
             &to_csv_str(&self.dilations.as_ref().unwrap_or(&vec![1, 1])),
         );
-        context.insert("group", &self.group);
-        context.insert(
+        shader_template.push_attr("group", &self.group);
+        shader_template.push_attr(
             "kernel_shape",
             &to_csv_str(&self.kernel_shape.as_ref().unwrap()),
         );
-        context.insert(
+        shader_template.push_attr(
             "output_padding",
             &to_csv_str(&self.output_padding.as_ref().unwrap_or(&vec![0, 0])),
         );
-        context.insert(
+        shader_template.push_attr(
             "pads",
             &to_csv_str(&self.pads.as_ref().unwrap_or(&vec![0, 0, 0, 0])),
         );
-        context.insert(
+        shader_template.push_attr(
             "strides",
             &to_csv_str(&self.strides.as_ref().unwrap_or(&vec![1, 1])),
         );
-        context.insert("output_channels", &w.shape()[1]);
+        shader_template.push_attr("output_channels", &w.shape()[1]);
 
         if op.inputs.len() > 2 {
-            context.insert("use_bias", &true);
+            shader_template.push_attr("use_bias", &true);
             let b = &graph.tensor_map[&op.inputs[2]];
-            context.insert("B_type", &b.type_glsl());
+            shader_template.push_attr("B_type", &b.type_glsl());
         }
 
-        let compiled = tera
-            .render("ConvTranspose", &context)
-            .map_err(|e| e.to_string())?;
-        Ok(compiled)
+        Ok(())
     }
 
     fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {

@@ -1,6 +1,5 @@
-use super::Compile;
+use super::{Compile, ShaderTemplate};
 use crate::{
-    gpu::SHADER_DIR,
     graph::{Graph, Op},
     ops::to_csv_str,
     utils::tensor_len,
@@ -132,20 +131,11 @@ fn generate_direct_strided_offset_glsl(
     code
 }
 
-pub fn compile_binary(op: &Op, _shader_source: &str, _graph: &Graph) -> Result<String, String> {
-    let base_shader_source = SHADER_DIR
-        .get_file("_binary_elementwise.glsl")
-        .unwrap()
-        .contents_utf8()
-        .unwrap();
-    let unary_shader_source = SHADER_DIR
-        .get_file(&format!("{}.glsl", op.op_type.to_string()))
-        .unwrap()
-        .contents_utf8()
-        .unwrap();
-    let mut tera = tera::Tera::default();
-    let mut context = tera::Context::new();
-
+pub fn compile_binary(
+    op: &Op,
+    _shader_templ: &mut ShaderTemplate,
+    _graph: &Graph,
+) -> Result<(), String> {
     let input_1 = &_graph.tensor_map[&op.inputs[0]];
     let input_2 = &_graph.tensor_map[&op.inputs[1]];
     let output = &_graph.tensor_map[&op.outputs[0]];
@@ -156,8 +146,8 @@ pub fn compile_binary(op: &Op, _shader_source: &str, _graph: &Graph) -> Result<S
 
     if let Some(broadcast_result) = get_broadcast_shape(input_1.shape(), input_2.shape())? {
         let common_shape = broadcast_result.shape;
-        context.insert("common_shape", &to_csv_str(&common_shape));
-        context.insert("common_shape_len", &common_shape.len());
+        _shader_templ.push_attr("common_shape", &to_csv_str(&common_shape));
+        _shader_templ.push_attr("common_shape_len", &common_shape.len());
 
         if let Some(left_logical_strides) = broadcast_result.left_logical_strides {
             let get_direct_strided_offset_fn = generate_direct_strided_offset_glsl(
@@ -166,15 +156,15 @@ pub fn compile_binary(op: &Op, _shader_source: &str, _graph: &Graph) -> Result<S
                 &left_logical_strides,
                 &broadcast_result.left_physical_strides,
             );
-            context.insert(
+            _shader_templ.push_attr(
                 "get_direct_strided_offset_l_fn",
                 &get_direct_strided_offset_fn,
             );
-            context.insert(
+            _shader_templ.push_attr(
                 "left_physical_strides",
                 &broadcast_result.left_physical_strides,
             );
-            context.insert("left_logical_strides", &left_logical_strides);
+            _shader_templ.push_attr("left_logical_strides", &left_logical_strides);
         }
 
         if let Some(right_logical_strides) = broadcast_result.right_logical_strides {
@@ -184,45 +174,36 @@ pub fn compile_binary(op: &Op, _shader_source: &str, _graph: &Graph) -> Result<S
                 &right_logical_strides,
                 &broadcast_result.right_physical_strides,
             );
-            context.insert(
+            _shader_templ.push_attr(
                 "get_direct_strided_offset_r_fn",
                 &get_direct_strided_offset_fn,
             );
-            context.insert(
+            _shader_templ.push_attr(
                 "right_physical_strides",
                 &broadcast_result.right_physical_strides,
             );
-            context.insert("right_logical_strides", &right_logical_strides);
+            _shader_templ.push_attr("right_logical_strides", &right_logical_strides);
         }
     }
 
-    context.insert("input_1_type", &input_1.type_glsl());
-    context.insert("input_2_type", &input_2.type_glsl());
-    context.insert("output_type", &output.type_glsl());
+    _shader_templ.push_attr("input_1_type", &input_1.type_glsl());
+    _shader_templ.push_attr("input_2_type", &input_2.type_glsl());
+    _shader_templ.push_attr("output_type", &output.type_glsl());
 
-    context.insert("left_oneval", &left_oneval);
-    context.insert("right_oneval", &right_oneval);
+    _shader_templ.push_attr("left_oneval", &left_oneval);
+    _shader_templ.push_attr("right_oneval", &right_oneval);
 
-    tera.add_raw_templates(vec![
-        ("_binary_elementwise", base_shader_source),
-        (&op.op_type.to_string(), unary_shader_source),
-    ])
-    .map_err(|e| e.to_string())?;
-
-    let compiled = tera
-        .render(&op.op_type.to_string(), &mut context)
-        .map_err(|e| e.to_string())?;
-    Ok(compiled)
+    Ok(())
 }
 
 impl Compile for &BinOpElementwise {
     fn compile(
         &self,
         op: &crate::graph::Op,
-        shader_source: &str,
+        shader_templ: &mut ShaderTemplate,
         graph: &crate::graph::Graph,
-    ) -> Result<String, String> {
-        compile_binary(op, shader_source, graph)
+    ) -> Result<(), String> {
+        compile_binary(op, shader_templ, graph)
     }
 
     fn compute_workgroup_size(

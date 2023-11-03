@@ -7,7 +7,7 @@ use crate::{
     utils::tensor_len,
 };
 
-use super::{compile_unary, Compile};
+use super::{Compile, ShaderTemplate};
 
 pub struct UnOpElementwise {
     pub attrs: Vec<(String, Box<dyn Debug>)>,
@@ -35,15 +35,21 @@ impl UnOpElementwise {
 }
 
 impl Compile for &UnOpElementwise {
-    fn compile(&self, op: &Op, shader_source: &str, graph: &Graph) -> Result<String, String> {
-        let attrs: Vec<(&str, String)> = self
-            .attrs
-            .iter()
-            .map(|(k, v)| (k.as_str(), format!("{:?}", v)))
-            .collect();
-        let compiled = compile_unary(op, Some(attrs), shader_source, graph);
+    fn compile(
+        &self,
+        op: &Op,
+        shader_templ: &mut ShaderTemplate,
+        graph: &Graph,
+    ) -> Result<(), String> {
+        for (k, v) in self.attrs.iter() {
+            shader_templ.push_attr(k, &format!("{:?}", v));
+        }
 
-        compiled
+        let input = &graph.tensor_map[&op.inputs[0]];
+        let output = &graph.tensor_map[&op.outputs[0]];
+        shader_templ.push_attr("input_type", &input.type_glsl());
+        shader_templ.push_attr("output_type", &output.type_glsl());
+        Ok(())
     }
 
     fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {

@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::graph::{Graph, Op};
 
-use super::Compile;
+use super::{Compile, ShaderTemplate};
 
 #[derive(Debug, Serialize)]
 pub struct GemmOp {
@@ -29,18 +29,17 @@ impl GemmOp {
 }
 
 impl Compile for &GemmOp {
-    fn compile(&self, op: &Op, shader_template: &str, graph: &Graph) -> Result<String, String> {
-        let mut tera = tera::Tera::default();
-        let mut context = tera::Context::new();
-
-        tera.add_raw_template("Gemm", shader_template)
-            .map_err(|e| e.to_string())?;
-
-        context.insert("use_bias", &(op.inputs.len() > 2));
-        context.insert("alpha", &self.alpha.unwrap_or(1.0));
-        context.insert("beta", &self.beta.unwrap_or(1.0));
-        context.insert("trans_a", &self.trans_a.unwrap_or(0));
-        context.insert("trans_b", &self.trans_b.unwrap_or(0));
+    fn compile(
+        &self,
+        op: &Op,
+        shader_templ: &mut ShaderTemplate,
+        graph: &Graph,
+    ) -> Result<(), String> {
+        shader_templ.push_attr("use_bias", &(op.inputs.len() > 2));
+        shader_templ.push_attr("alpha", &self.alpha.unwrap_or(1.0));
+        shader_templ.push_attr("beta", &self.beta.unwrap_or(1.0));
+        shader_templ.push_attr("trans_a", &self.trans_a.unwrap_or(0));
+        shader_templ.push_attr("trans_b", &self.trans_b.unwrap_or(0));
 
         let t_a = &graph.tensor_map[&op.inputs[0]];
         let t_b = &graph.tensor_map[&op.inputs[1]];
@@ -52,8 +51,8 @@ impl Compile for &GemmOp {
                 a_type, b_type
             ));
         }
-        context.insert("a_type", &a_type);
-        context.insert("b_type", &b_type);
+        shader_templ.push_attr("a_type", &a_type);
+        shader_templ.push_attr("b_type", &b_type);
 
         let m = if self.trans_a == Some(0) {
             t_a.shape()[0]
@@ -66,33 +65,29 @@ impl Compile for &GemmOp {
             (t_b.shape()[1], t_b.shape()[0])
         };
 
-        context.insert("m", &m);
-        context.insert("k", &k);
-        context.insert("n", &n);
+        shader_templ.push_attr("m", &m);
+        shader_templ.push_attr("k", &k);
+        shader_templ.push_attr("n", &n);
 
         if op.inputs.len() > 2 {
             if let Some(bias) = &graph.tensor_map.get(&op.inputs[2]) {
                 if bias.type_glsl() != b_type {
                     return Err("Bias type must be identical with input and weight tensors".into());
                 }
-                context.insert("bias_type", &bias.type_glsl());
+                shader_templ.push_attr("bias_type", &bias.type_glsl());
                 if bias.shape().len() == 2 {
-                    context.insert("bias_h", &bias.shape()[0]);
-                    context.insert("bias_w", &bias.shape()[1]);
+                    shader_templ.push_attr("bias_h", &bias.shape()[0]);
+                    shader_templ.push_attr("bias_w", &bias.shape()[1]);
                 } else if bias.shape().len() == 1 {
-                    context.insert("bias_h", &1);
-                    context.insert("bias_w", &bias.shape()[0]);
+                    shader_templ.push_attr("bias_h", &1);
+                    shader_templ.push_attr("bias_w", &bias.shape()[0]);
                 } else {
                     return Err("Cannot handle bias with rank more than 2".into());
                 }
             }
         }
 
-        let rendered = tera
-            .render(&op.op_type.to_string(), &context)
-            .map_err(|e| e.to_string());
-        // println!("{:}", rendered.clone().unwrap());
-        rendered
+        Ok(())
     }
 
     fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {

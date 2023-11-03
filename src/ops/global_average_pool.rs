@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::graph::{Graph, Op};
 
-use super::{to_csv_str, Compile};
+use super::{to_csv_str, Compile, ShaderTemplate};
 
 #[derive(Debug, Serialize)]
 pub struct GlobalAveragePoolOp {}
@@ -16,14 +16,14 @@ impl Compile for &GlobalAveragePoolOp {
     fn compile(
         &self,
         op: &crate::graph::Op,
-        shader_source: &str,
+        shader_templ: &mut ShaderTemplate,
         graph: &crate::graph::Graph,
-    ) -> Result<String, String> {
-        let mut tera = tera::Tera::default();
-        let mut context = tera::Context::new();
+    ) -> Result<(), String> {
+        // let mut tera = tera::Tera::default();
+        // let mut context = tera::Context::new();
 
-        tera.add_raw_template("GlobaleAveragePool", shader_source)
-            .map_err(|e| e.to_string())?;
+        // tera.add_raw_template("GlobaleAveragePool", shader_source)
+        //     .map_err(|e| e.to_string())?;
 
         let x = &graph.tensor_map[&op.inputs[0]];
         let y = &graph.tensor_map[&op.outputs[0]];
@@ -35,16 +35,16 @@ impl Compile for &GlobalAveragePoolOp {
             ));
         }
 
-        context.insert("X_type", &x.type_glsl());
-        context.insert("Y_type", &y.type_glsl());
-        context.insert("in_dim", &to_csv_str(&x.shape()));
-        context.insert("out_dim", &to_csv_str(&y.shape()));
+        shader_templ.push_attr("X_type", &x.type_glsl());
+        shader_templ.push_attr("Y_type", &y.type_glsl());
+        shader_templ.push_attr("in_dim", &to_csv_str(&x.shape()));
+        shader_templ.push_attr("out_dim", &to_csv_str(&y.shape()));
 
-        let compiled = tera
-            .render("GlobaleAveragePool", &mut context)
-            .map_err(|e| e.to_string())?;
+        // let compiled = tera
+        //     .render("GlobaleAveragePool", &mut context)
+        //     .map_err(|e| e.to_string())?;
 
-        Ok(compiled)
+        Ok(())
     }
 
     fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3] {

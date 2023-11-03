@@ -27,10 +27,15 @@ use crate::{
     utils::{get_attr_f, get_attr_i, get_attr_ints, get_attr_string},
 };
 use serde::Serialize;
-use std::fmt;
+use std::fmt::{self, Debug};
 
 pub trait Compile {
-    fn compile(&self, op: &Op, shader_source: &str, graph: &Graph) -> Result<String, String>;
+    fn compile(
+        &self,
+        op: &Op,
+        shader_templ: &mut ShaderTemplate,
+        graph: &Graph,
+    ) -> Result<(), String>;
     fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3];
 }
 
@@ -129,6 +134,65 @@ impl OpType {
     }
 }
 
+pub struct ShaderTemplate<'templ> {
+    tera: tera::Tera,
+    ctx: tera::Context,
+    template_name: &'templ str,
+}
+
+impl<'templ> ShaderTemplate<'templ> {
+    pub fn new(template_name: &'templ str, template_str: &'templ str) -> Result<Self, String> {
+        let mut tera = tera::Tera::default();
+        let ctx = tera::Context::new();
+
+        // Include common base templates
+        let unary_shader_source = SHADER_DIR
+            .get_file("_unary_elementwise.glsl")
+            .unwrap()
+            .contents_utf8()
+            .unwrap();
+        let binary_shader_source = SHADER_DIR
+            .get_file("_binary_elementwise.glsl")
+            .unwrap()
+            .contents_utf8()
+            .unwrap();
+
+        // Include ops specific template
+        tera.add_raw_template("_unary_elementwise", unary_shader_source)
+            .map_err(|e| e.to_string())?;
+        tera.add_raw_template("_binary_elementwise", binary_shader_source)
+            .map_err(|e| e.to_string())?;
+
+        tera.add_raw_template(template_name, template_str)
+            .map_err(|e| e.to_string())?;
+
+        Ok(Self {
+            tera,
+            ctx,
+            template_name,
+        })
+    }
+
+    pub fn compile(&self) -> Result<String, String> {
+        let compiled = self
+            .tera
+            .render(self.template_name, &self.ctx)
+            .map_err(|e| e.to_string())?;
+        Ok(compiled)
+    }
+
+    pub fn push_attr<Val: Serialize + ?Sized>(&mut self, attr_name: &str, attr_val: &Val) {
+        self.ctx.insert(attr_name, attr_val)
+    }
+
+    pub fn add_template(&mut self, name: &'templ str, content: &'templ str) -> Result<(), String> {
+        self.tera
+            .add_raw_template(name, content)
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+}
+
 impl<'gr, 'gpu> OpType {
     fn _compile<Compilable: Compile>(
         &self,
@@ -137,7 +201,10 @@ impl<'gr, 'gpu> OpType {
         op: &'gr Op,
         graph: &'gr Graph,
     ) -> Result<(String, [u32; 3]), String> {
-        let compiled = attr.compile(op, shader_source, graph)?;
+        let mut templ = ShaderTemplate::new(&op.op_name, shader_source)?;
+        // let compiled = attr.compile(op, shader_source, graph)?;
+        attr.compile(op, &mut templ, graph)?;
+        let compiled = templ.compile()?;
         let wg = attr.compute_workgroup_size(op, graph);
         Ok((compiled, wg))
     }
