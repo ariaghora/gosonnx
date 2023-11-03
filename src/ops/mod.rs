@@ -29,16 +29,6 @@ use crate::{
 use serde::Serialize;
 use std::fmt::{self, Debug};
 
-pub trait Compile {
-    fn compile(
-        &self,
-        op: &Op,
-        shader_templ: &mut ShaderTemplate,
-        graph: &Graph,
-    ) -> Result<(), String>;
-    fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3];
-}
-
 define_ops!(
     Add { BinOpElementwise },
     AveragePool { AveragePoolOp },
@@ -132,6 +122,16 @@ impl OpType {
             )),
         }
     }
+}
+
+pub trait Compile {
+    fn compile(
+        &self,
+        op: &Op,
+        shader_templ: &mut ShaderTemplate,
+        graph: &Graph,
+    ) -> Result<(), String>;
+    fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3];
 }
 
 pub struct ShaderTemplate<'templ> {
