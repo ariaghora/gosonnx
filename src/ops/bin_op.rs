@@ -84,7 +84,7 @@ fn get_broadcast_shape(s1: Vec<i64>, s2: Vec<i64>) -> Result<Option<BroadcastRes
     }))
 }
 
-fn shape_to_strides(shape: &Vec<i64>) -> Vec<i64> {
+pub fn shape_to_strides(shape: &Vec<i64>) -> Vec<i64> {
     let mut res = vec![];
     for i in 0..shape.len() {
         let mut prod: i64 = 1;

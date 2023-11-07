@@ -2,6 +2,7 @@ pub mod add;
 pub mod average_pool;
 pub mod bin_op;
 pub mod clip;
+pub mod concat;
 pub mod conv;
 pub mod conv_transpose;
 pub mod flatten;
@@ -15,7 +16,7 @@ pub mod sigmoid;
 pub mod un_op;
 
 use self::{
-    average_pool::AveragePoolOp, bin_op::BinOpElementwise, conv::ConvOp,
+    average_pool::AveragePoolOp, bin_op::BinOpElementwise, concat::ConcatOp, conv::ConvOp,
     conv_transpose::ConvTransposeOp, flatten::FlattenOp, gemm::GemmOp,
     global_average_pool::GlobalAveragePoolOp, maxpool::MaxPoolOp, un_op::UnOpElementwise,
 };
@@ -33,6 +34,7 @@ define_ops!(
     Add { BinOpElementwise },
     AveragePool { AveragePoolOp },
     Clip { UnOpElementwise },
+    Concat { ConcatOp },
     Conv { ConvOp },
     ConvTranspose { ConvTransposeOp },
     Div { BinOpElementwise },
