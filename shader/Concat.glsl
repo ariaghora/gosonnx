@@ -87,7 +87,7 @@ void main() {
 
     int src_index = get_src_index(current_input, pos);
 
-    float value = 0.0;
+    {{output_dtype}} value = 0.0;
     switch (current_input) {
         {% for i in range(end=n_inputs) %}
         case {{i}}: value = input_{{i}}[src_index]; break;

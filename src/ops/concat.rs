@@ -33,6 +33,9 @@ impl Compile for &ConcatOp {
         let inputs: Vec<&Tensor> = op.inputs.iter().map(|v| &graph.tensor_map[v]).collect();
         let output = &graph.tensor_map[&op.outputs[0]];
 
+        shader_templ.push_attr("concat_axis", &self.axis);
+        shader_templ.push_attr("n_inputs", &inputs.len());
+
         let input_info_arr: Vec<InputInfo> = inputs
             .iter()
             .map(|v| InputInfo {
@@ -43,31 +46,15 @@ impl Compile for &ConcatOp {
             })
             .collect();
         shader_templ.push_attr("input_info_arr", &input_info_arr);
+
         shader_templ.push_attr("output_n_dim", &output.shape().len());
         shader_templ.push_attr("output_shape_csv", &to_csv_str(&output.shape()));
+        shader_templ.push_attr("output_dtype", &output.type_glsl());
+        shader_templ.push_attr("output_binding_no", &inputs.len());
         shader_templ.push_attr(
             "output_strides_csv",
             &to_csv_str(&shape_to_strides(&output.shape())),
         );
-
-        shader_templ.push_attr("concat_axis", &self.axis);
-        shader_templ.push_attr("n_inputs", &inputs.len());
-
-        shader_templ.push_attr("output_n_elements", &tensor_len(&output).unwrap());
-
-        // calculate output stride
-        let mut output_stride = 1;
-        for sz in &output.shape()[self.axis as usize + 1..] {
-            output_stride *= *sz;
-        }
-        shader_templ.push_attr("output_stride", &output_stride);
-        shader_templ.push_attr("output_dtype", &output.type_glsl());
-        shader_templ.push_attr("output_binding_no", &inputs.len());
-
-        let concat_axis_size = inputs
-            .iter()
-            .fold(0, |acc, t| acc + t.shape()[self.axis as usize]);
-        shader_templ.push_attr("concat_axis_size", &concat_axis_size);
 
         Ok(())
     }
