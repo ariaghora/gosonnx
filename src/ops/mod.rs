@@ -72,6 +72,11 @@ impl OpType {
                     attribute!("max_val", get_attr_f(node_proto, "max")),
                 ]),
             }),
+            "Concat" => Ok(Self::Concat {
+                attr: ConcatOp {
+                    axis: get_attr_i(node_proto, "axis").unwrap(),
+                },
+            }),
             "Conv" => Ok(Self::Conv {
                 attr: ConvOp::new(
                     get_attr_ints(node_proto, "dilations").unwrap(),
@@ -79,6 +84,17 @@ impl OpType {
                     get_attr_ints(node_proto, "kernel_shape").unwrap(),
                     get_attr_ints(node_proto, "pads").unwrap(),
                     get_attr_ints(node_proto, "strides").unwrap(),
+                ),
+            }),
+            "ConvTranspose" => Ok(Self::ConvTranspose {
+                attr: ConvTransposeOp::new(
+                    get_attr_ints(node_proto, "dilations"),
+                    get_attr_i(node_proto, "group"),
+                    get_attr_ints(node_proto, "kernel_shape"),
+                    get_attr_ints(node_proto, "output_padding"),
+                    get_attr_ints(node_proto, "output_shape"),
+                    get_attr_ints(node_proto, "pads"),
+                    get_attr_ints(node_proto, "strides"),
                 ),
             }),
             "Div" => Ok(Self::Div {
@@ -91,6 +107,9 @@ impl OpType {
                     get_attr_i(node_proto, "transA"),
                     get_attr_i(node_proto, "transB"),
                 ),
+            }),
+            "GlobalAveragePool" => Ok(Self::GlobalAveragePool {
+                attr: GlobalAveragePoolOp {},
             }),
             "HardSigmoid" => Ok(Self::HardSigmoid {
                 attr: UnOpElementwise::new(vec![attribute!(

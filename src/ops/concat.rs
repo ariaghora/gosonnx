@@ -6,7 +6,7 @@ use super::{bin_op::shape_to_strides, to_csv_str, Compile};
 
 #[derive(Debug, Serialize)]
 pub struct ConcatOp {
-    axis: i64,
+    pub axis: i64,
 }
 
 impl ConcatOp {
