@@ -7,6 +7,13 @@ use crate::ops::OpType;
 use std::{cell::RefCell, collections::HashMap};
 
 #[derive(Debug)]
+pub enum TensorType {
+    F32,
+    F64,
+    I64,
+}
+
+#[derive(Debug)]
 pub enum Tensor {
     F32 {
         values: Option<Vec<f32>>,
@@ -16,6 +23,10 @@ pub enum Tensor {
         values: Option<Vec<f64>>,
         shape: Vec<i64>,
     },
+    I64 {
+        values: Option<Vec<i64>>,
+        shape: Vec<i64>,
+    },
 }
 
 impl Tensor {
@@ -23,6 +34,15 @@ impl Tensor {
         match self {
             Tensor::F32 { values: _, shape } => shape.clone(),
             Tensor::F64 { values: _, shape } => shape.clone(),
+            Tensor::I64 { values: _, shape } => shape.clone(),
+        }
+    }
+
+    pub fn tensor_type(&self) -> TensorType {
+        match self {
+            Tensor::F32 { .. } => TensorType::F32,
+            Tensor::F64 { .. } => TensorType::F64,
+            Tensor::I64 { .. } => TensorType::I64,
         }
     }
 
@@ -30,6 +50,7 @@ impl Tensor {
         match self {
             Tensor::F32 { .. } => "float".into(),
             Tensor::F64 { .. } => "double".into(),
+            Tensor::I64 { .. } => "int".into(), // no official support for i64 in GLSL
         }
     }
 
@@ -192,6 +213,11 @@ impl Graph {
     pub fn new_tensor_f32(&mut self, tensor_name: &str, values: Option<Vec<f32>>, shape: Vec<i64>) {
         self.tensor_map
             .insert(tensor_name.into(), Tensor::F32 { values, shape });
+    }
+
+    pub fn new_tensor_i64(&mut self, tensor_name: &str, values: Option<Vec<i64>>, shape: Vec<i64>) {
+        self.tensor_map
+            .insert(tensor_name.into(), Tensor::I64 { values, shape });
     }
 
     pub fn get_output(&self, arg: &str) -> Option<&Tensor> {

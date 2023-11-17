@@ -40,6 +40,7 @@ pub fn tensor_len(t: &Tensor) -> Result<usize, String> {
     let len = match t {
         Tensor::F32 { values: _, shape } => shape,
         Tensor::F64 { values: _, shape } => shape,
+        Tensor::I64 { values: _, shape } => shape,
     }
     .iter()
     .fold(1, |x, y| x * y) as usize;
