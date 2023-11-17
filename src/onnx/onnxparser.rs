@@ -1,10 +1,5 @@
 use crate::{
-    graph::{
-        // onnx::{self, ModelProto, NodeProto, TensorProto},
-        Graph,
-        Op,
-        Tensor,
-    },
+    graph::{Graph, Op, Tensor},
     ops::OpType,
 };
 use anyhow::{anyhow, Result};
@@ -69,6 +64,7 @@ pub(crate) fn parse_model_proto(model_proto: &mut ModelProto) -> Result<Graph> {
             }
             Err(e) => {
                 println!("{}", e);
+                // TODO: actually return error
                 // return Err(e);
             }
         }

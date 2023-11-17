@@ -2,6 +2,10 @@
 
 Ngubrut sampe otakku GOSONNX
 
+# Preparation
+
+Please run onnxsim on the model first.
+
 # Adding your operator
 
 - `ops/sigmoid.rs`, define struct `SigmoidOp`

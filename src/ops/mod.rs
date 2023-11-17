@@ -12,13 +12,15 @@ pub mod hard_sigmoid;
 pub mod maxpool;
 pub mod mul;
 pub mod relu;
+pub mod resize;
 pub mod sigmoid;
 pub mod un_op;
 
 use self::{
     average_pool::AveragePoolOp, bin_op::BinOpElementwise, concat::ConcatOp, conv::ConvOp,
     conv_transpose::ConvTransposeOp, flatten::FlattenOp, gemm::GemmOp,
-    global_average_pool::GlobalAveragePoolOp, maxpool::MaxPoolOp, un_op::UnOpElementwise,
+    global_average_pool::GlobalAveragePoolOp, maxpool::MaxPoolOp, resize::ResizeOp,
+    un_op::UnOpElementwise,
 };
 use crate::{
     attribute, define_ops,
@@ -28,7 +30,7 @@ use crate::{
     utils::{get_attr_f, get_attr_i, get_attr_ints, get_attr_string},
 };
 use serde::Serialize;
-use std::fmt::{self, Debug};
+use std::fmt::{self, Debug, Display};
 
 define_ops!(
     Add { BinOpElementwise },
@@ -47,6 +49,7 @@ define_ops!(
     MaxPool { MaxPoolOp },
     Mul { BinOpElementwise },
     Relu { UnOpElementwise },
+    Resize { ResizeOp },
     Sigmoid { UnOpElementwise }
 );
 
@@ -133,6 +136,19 @@ impl OpType {
             }),
             "Relu" => Ok(Self::Relu {
                 attr: UnOpElementwise::new(vec![]),
+            }),
+            "Resize" => Ok(Self::Resize {
+                attr: ResizeOp::new(
+                    get_attr_i(node_proto, "antialias"),
+                    get_attr_ints(node_proto, "axes"),
+                    get_attr_string(node_proto, "coordinate_transformation_mode"),
+                    get_attr_f(node_proto, "cubic_coeff_a"),
+                    get_attr_i(node_proto, "exclude_outside"),
+                    get_attr_f(node_proto, "extrapolation_value"),
+                    get_attr_string(node_proto, "keep_aspect_ratio_policy"),
+                    get_attr_string(node_proto, "mode"),
+                    get_attr_string(node_proto, "nearest_mode"),
+                ),
             }),
             "Sigmoid" => Ok(Self::Sigmoid {
                 attr: UnOpElementwise::new(vec![]),
@@ -231,8 +247,8 @@ impl<'gr, 'gpu> OpType {
     }
 }
 
-pub fn to_csv_str<T: ToString>(vals: &Vec<T>) -> String {
-    let res: Vec<String> = vals.iter().map(|v| v.to_string()).collect();
+pub fn to_csv_str<T: ToString + Display>(vals: &Vec<T>) -> String {
+    let res: Vec<String> = vals.iter().map(|v| format!("{:.2}", *v)).collect();
     res.join(",")
 }
 
