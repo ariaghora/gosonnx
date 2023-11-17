@@ -18,18 +18,40 @@ fn create_storage_buf<'a, T: bytemuck::Pod + Default + Debug>(
     values: &'a Option<Vec<T>>,
     shape: &Vec<i64>,
 ) -> wgpu::Buffer {
-    let n_items = shape.iter().fold(1, |x, y| x * y) as usize;
+    let mut n_items = shape.iter().fold(1, |x, y| x * y) as usize;
+    // TODO: proper handling on 0-sized dims or non-zero-length shape but containing 0-length dim
+    if n_items == 0 {
+        n_items = 1;
+    }
     let vals: Cow<'a, Vec<T>> = match values {
         Some(v) => Cow::Borrowed(v),
         None => Cow::Owned(vec![T::default(); n_items]),
     };
-    let data = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: Some(format!("{}.storage", buf_label).as_str()),
-        contents: bytemuck::cast_slice(&vals),
-        usage: wgpu::BufferUsages::STORAGE
-            | wgpu::BufferUsages::COPY_DST
-            | wgpu::BufferUsages::COPY_SRC,
-    });
+
+    // Some models provides tensors with empty data, i.e., with shape [0]. WGPU does not
+    // allow zero buffer binding, so we trick it by using a "dummy" buffer binding with
+    // size of 4 (minimum allowed)
+    let tensor_has_data = vals.len() > 0;
+    let data = if tensor_has_data {
+        // We create buffer initialized with tensor's original data
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some(format!("{}.storage", buf_label).as_str()),
+            contents: bytemuck::cast_slice(&vals),
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
+        })
+    } else {
+        // The dummy buffer
+        device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some(format!("{}.storage", buf_label).as_str()),
+            size: 4,
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        })
+    };
     data
 }
 
@@ -76,6 +98,9 @@ impl GPUExecutor {
                 Tensor::F64 { values, shape } => {
                     create_storage_buf(&device, &tensor_name, values, shape)
                 }
+                Tensor::I64 { values, shape } => {
+                    create_storage_buf(&device, &tensor_name, values, shape)
+                }
             };
 
             self.storage_buf_map.insert(tensor_name.clone(), buf);
@@ -92,6 +117,9 @@ impl GPUExecutor {
                     create_staging_buf(&device, &output, values, shape)
                 }
                 Tensor::F64 { values, shape } => {
+                    create_staging_buf(&device, &output, values, shape)
+                }
+                Tensor::I64 { values, shape } => {
                     create_staging_buf(&device, &output, values, shape)
                 }
             };
@@ -153,10 +181,13 @@ impl GPUExecutor {
                         ),
                         shape: shape.to_vec(),
                     },
-                    Tensor::F64 {
-                        values: _,
-                        shape: _,
-                    } => todo!(),
+                    Tensor::I64 { values: _, shape } => Tensor::I64 {
+                        values: Some(
+                            bytemuck::cast_slice(&data)[..tensor_len(out_tensor).unwrap()].to_vec(),
+                        ),
+                        shape: shape.to_vec(),
+                    },
+                    Tensor::F64 { .. } => todo!(),
                 };
 
                 drop(data);
@@ -197,7 +228,7 @@ impl GPUExecutor {
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Storage { read_only: false },
                     has_dynamic_offset: false,
-                    min_binding_size: wgpu::BufferSize::new(4),
+                    min_binding_size: None,
                 },
                 count: None,
             });
