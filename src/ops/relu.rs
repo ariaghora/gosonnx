@@ -2,13 +2,14 @@
 mod test {
     use std::error::Error;
 
+    use crate::errors::GosonnxError;
     use crate::{
         graph::{Graph, Tensor},
         ops::{un_op::UnOpElementwise, OpType},
     };
 
     #[test]
-    fn simple_relu() -> Result<(), Box<dyn Error>> {
+    fn simple_relu() -> Result<(), GosonnxError> {
         let mut graph = Graph::new();
         graph.new_tensor_f32("X", Some(vec![0.5, -1.0, 2.0]), vec![1, 3]);
         graph.new_tensor_f32("Y", None, vec![1, 3]);

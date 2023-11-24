@@ -1,3 +1,4 @@
+use crate::errors::GosonnxError;
 use serde::Serialize;
 
 use crate::graph::{Graph, Op};
@@ -37,7 +38,7 @@ impl Compile for &ConvOp {
         op: &Op,
         shader_template: &mut ShaderTemplate,
         graph: &Graph,
-    ) -> Result<(), String> {
+    ) -> Result<(), GosonnxError> {
         let x = &graph.tensor_map[&op.inputs[0]];
         let w = &graph.tensor_map[&op.inputs[1]];
         let y = &graph.tensor_map[&op.outputs[0]];

@@ -1,3 +1,5 @@
+use crate::errors::GosonnxError;
+use crate::errors::GosonnxError::{AttributeNotFound, InvalidInputDimension};
 use serde::Serialize;
 
 use crate::graph::{Graph, Op};
@@ -39,15 +41,15 @@ impl Compile for &AveragePoolOp {
         op: &crate::graph::Op,
         shader_templ: &mut ShaderTemplate,
         graph: &crate::graph::Graph,
-    ) -> Result<(), String> {
+    ) -> Result<(), GosonnxError> {
         let x = &graph.tensor_map[&op.inputs[0]];
         let y = &graph.tensor_map[&op.outputs[0]];
 
         if x.shape().len() != 4 {
-            return Err(format!(
-                "AveragePool expects 4 dimensions, found {}",
-                x.shape().len()
-            ));
+            return Err(InvalidInputDimension {
+                expected: 4,
+                found: x.shape().len(),
+            });
         }
 
         shader_templ.push_attr("X_type", &x.type_glsl());
@@ -61,7 +63,7 @@ impl Compile for &AveragePoolOp {
         let kernel_shape = if let Some(kernel_shape) = &self.kernel_shape {
             kernel_shape
         } else {
-            return Err("Kernel shape is mandatory but not provided".into());
+            return Err(AttributeNotFound("kernel_shape".to_string()));
         };
 
         let pads = &self.pads.clone().unwrap_or(vec![0, 0, 0, 0]);

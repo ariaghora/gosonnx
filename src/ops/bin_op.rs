@@ -1,4 +1,6 @@
 use super::{Compile, ShaderTemplate};
+use crate::errors::GosonnxError;
+use crate::errors::GosonnxError::IncompatibleShape;
 use crate::{
     graph::{Graph, Op},
     ops::to_csv_str,
@@ -18,7 +20,10 @@ struct BroadcastResult {
     right_logical_strides: Option<Vec<i64>>,
 }
 
-fn get_broadcast_shape(s1: Vec<i64>, s2: Vec<i64>) -> Result<Option<BroadcastResult>, String> {
+fn get_broadcast_shape(
+    s1: Vec<i64>,
+    s2: Vec<i64>,
+) -> Result<Option<BroadcastResult>, GosonnxError> {
     if s1 == s2 {
         return Ok(None);
     }
@@ -58,10 +63,11 @@ fn get_broadcast_shape(s1: Vec<i64>, s2: Vec<i64>) -> Result<Option<BroadcastRes
                     l_logical_strides[i] = 0;
                 }
                 _ => {
-                    return Err(format!(
-                        "tensor shapes are incompatible: {:?} vs {:?}",
-                        s1, s2
-                    ))
+                    return Err(IncompatibleShape {
+                        msg: "tensor shapes are incompatible".to_string(),
+                        expected: s1,
+                        found: s2,
+                    });
                 }
             };
         }
@@ -135,7 +141,7 @@ pub fn compile_binary(
     op: &Op,
     _shader_templ: &mut ShaderTemplate,
     _graph: &Graph,
-) -> Result<(), String> {
+) -> Result<(), GosonnxError> {
     let input_1 = &_graph.tensor_map[&op.inputs[0]];
     let input_2 = &_graph.tensor_map[&op.inputs[1]];
     let output = &_graph.tensor_map[&op.outputs[0]];
@@ -202,7 +208,7 @@ impl Compile for &BinOpElementwise {
         op: &crate::graph::Op,
         shader_templ: &mut ShaderTemplate,
         graph: &crate::graph::Graph,
-    ) -> Result<(), String> {
+    ) -> Result<(), GosonnxError> {
         compile_binary(op, shader_templ, graph)
     }
 

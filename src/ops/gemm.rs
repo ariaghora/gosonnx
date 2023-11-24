@@ -1,3 +1,5 @@
+use crate::errors::GosonnxError;
+use crate::errors::GosonnxError::{Error, OpsOnIncompatibleTypeError};
 use serde::Serialize;
 
 use crate::graph::{Graph, Op};
@@ -34,7 +36,7 @@ impl Compile for &GemmOp {
         op: &Op,
         shader_templ: &mut ShaderTemplate,
         graph: &Graph,
-    ) -> Result<(), String> {
+    ) -> Result<(), GosonnxError> {
         shader_templ.push_attr("use_bias", &(op.inputs.len() > 2));
         shader_templ.push_attr("alpha", &self.alpha.unwrap_or(1.0));
         shader_templ.push_attr("beta", &self.beta.unwrap_or(1.0));
@@ -46,10 +48,10 @@ impl Compile for &GemmOp {
         let a_type = t_a.type_glsl();
         let b_type = t_b.type_glsl();
         if a_type != b_type {
-            return Err(format!(
-                "Cannot perform Conv between {} and {}",
-                a_type, b_type
-            ));
+            return Err(OpsOnIncompatibleTypeError {
+                left: a_type,
+                right: b_type,
+            });
         }
         shader_templ.push_attr("a_type", &a_type);
         shader_templ.push_attr("b_type", &b_type);
@@ -72,7 +74,9 @@ impl Compile for &GemmOp {
         if op.inputs.len() > 2 {
             if let Some(bias) = &graph.tensor_map.get(&op.inputs[2]) {
                 if bias.type_glsl() != b_type {
-                    return Err("Bias type must be identical with input and weight tensors".into());
+                    return Err(Error(
+                        "Bias type must be identical with input and weight tensors".into(),
+                    ));
                 }
                 shader_templ.push_attr("bias_type", &bias.type_glsl());
                 if bias.shape().len() == 2 {
@@ -82,7 +86,7 @@ impl Compile for &GemmOp {
                     shader_templ.push_attr("bias_h", &1);
                     shader_templ.push_attr("bias_w", &bias.shape()[0]);
                 } else {
-                    return Err("Cannot handle bias with rank more than 2".into());
+                    return Err(Error("Cannot handle bias with rank more than 2".into()));
                 }
             }
         }

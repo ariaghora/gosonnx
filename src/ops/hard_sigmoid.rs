@@ -2,6 +2,7 @@
 mod test {
     use std::error::Error;
 
+    use crate::errors::GosonnxError;
     use crate::{
         attribute,
         graph::{Graph, Tensor},
@@ -9,7 +10,7 @@ mod test {
     };
 
     #[test]
-    fn test_hard_sigmoid() -> Result<(), Box<dyn Error>> {
+    fn test_hard_sigmoid() -> Result<(), GosonnxError> {
         let mut graph = Graph::new();
         let in_data = vec![-1., 0., 2., 4.];
         graph.new_tensor_f32("X", Some(in_data.clone()), vec![1, 4]);

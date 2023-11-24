@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 use serde::{Serialize, Serializer};
 
+use crate::errors::GosonnxError;
 use crate::{
     graph::{Graph, Op},
     utils::tensor_len,
@@ -40,7 +41,7 @@ impl Compile for &UnOpElementwise {
         op: &Op,
         shader_templ: &mut ShaderTemplate,
         graph: &Graph,
-    ) -> Result<(), String> {
+    ) -> Result<(), GosonnxError> {
         for (k, v) in self.attrs.iter() {
             shader_templ.push_attr(k, &format!("{:?}", v));
         }

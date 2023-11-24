@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::errors::GosonnxError;
 use crate::{
     graph::{Graph, Op},
     ops::to_csv_str,
@@ -32,10 +33,11 @@ impl Compile for &MaxPoolOp {
         op: &crate::graph::Op,
         shader_templ: &mut ShaderTemplate,
         graph: &crate::graph::Graph,
-    ) -> Result<(), String> {
+    ) -> Result<(), GosonnxError> {
         let x = &graph.tensor_map[&op.inputs[0]];
         let y = &graph.tensor_map[&op.outputs[0]];
 
+        shader_templ.push_attr("X_type", &x.type_glsl());
         shader_templ.push_attr("X_type", &x.type_glsl());
         shader_templ.push_attr("Y_type", &y.type_glsl());
         shader_templ.push_attr("in_dim", &to_csv_str(&x.shape()));

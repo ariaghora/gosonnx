@@ -22,6 +22,8 @@ use self::{
     global_average_pool::GlobalAveragePoolOp, maxpool::MaxPoolOp, resize::ResizeOp,
     un_op::UnOpElementwise,
 };
+use crate::errors::GosonnxError;
+use crate::errors::GosonnxError::{Error, ShaderCompileError, UnsupportedONNXOps};
 use crate::ops::clip::ClipOp;
 use crate::{
     attribute, define_ops,
@@ -55,7 +57,7 @@ define_ops!(
 );
 
 impl OpType {
-    pub fn from_node_proto(node_proto: &NodeProto) -> Result<Self, String> {
+    pub fn from_node_proto(node_proto: &NodeProto) -> Result<Self, GosonnxError> {
         match node_proto.get_op_type() {
             "Add" => Ok(Self::Add {
                 attr: BinOpElementwise {},
@@ -151,10 +153,7 @@ impl OpType {
             "Sigmoid" => Ok(Self::Sigmoid {
                 attr: UnOpElementwise::new(vec![]),
             }),
-            _ => Err(format!(
-                "ONNX op type `{}` is not supported yet",
-                node_proto.get_op_type()
-            )),
+            _ => Err(UnsupportedONNXOps(node_proto.get_op_type().to_string())),
         }
     }
 }
@@ -165,7 +164,7 @@ pub trait Compile {
         op: &Op,
         shader_templ: &mut ShaderTemplate,
         graph: &Graph,
-    ) -> Result<(), String>;
+    ) -> Result<(), GosonnxError>;
     fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3];
 }
 
@@ -176,7 +175,10 @@ pub struct ShaderTemplate<'templ> {
 }
 
 impl<'templ> ShaderTemplate<'templ> {
-    pub fn new(template_name: &'templ str, template_str: &'templ str) -> Result<Self, String> {
+    pub fn new(
+        template_name: &'templ str,
+        template_str: &'templ str,
+    ) -> Result<Self, GosonnxError> {
         let mut tera = tera::Tera::default();
         let ctx = tera::Context::new();
 
@@ -194,12 +196,12 @@ impl<'templ> ShaderTemplate<'templ> {
 
         // Include ops specific template
         tera.add_raw_template("_unary_elementwise", unary_shader_source)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| Error(e.to_string()))?;
         tera.add_raw_template("_binary_elementwise", binary_shader_source)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| Error(e.to_string()))?;
 
         tera.add_raw_template(template_name, template_str)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| Error(e.to_string()))?;
 
         Ok(Self {
             tera,
@@ -208,11 +210,11 @@ impl<'templ> ShaderTemplate<'templ> {
         })
     }
 
-    pub fn compile(&self) -> Result<String, String> {
+    pub fn compile(&self) -> Result<String, GosonnxError> {
         let compiled = self
             .tera
             .render(self.template_name, &self.ctx)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| ShaderCompileError(e.to_string()))?;
         Ok(compiled)
     }
 
@@ -235,7 +237,7 @@ impl<'gr, 'gpu> OpType {
         shader_source: &str,
         op: &'gr Op,
         graph: &'gr Graph,
-    ) -> Result<(String, [u32; 3]), String> {
+    ) -> Result<(String, [u32; 3]), GosonnxError> {
         let mut templ = ShaderTemplate::new(&op.op_name, shader_source)?;
         // let compiled = attr.compile(op, shader_source, graph)?;
         attr.compile(op, &mut templ, graph)?;
@@ -255,7 +257,7 @@ pub fn compile_unary(
     attr: Option<Vec<(&str, String)>>,
     _shader_source: &str,
     _graph: &Graph,
-) -> Result<String, String> {
+) -> Result<String, GosonnxError> {
     let base_shader_source = SHADER_DIR
         .get_file("_unary_elementwise.glsl")
         .unwrap()
@@ -285,10 +287,10 @@ pub fn compile_unary(
         ("_unary_elementwise", base_shader_source),
         (&op.op_type.to_string(), unary_shader_source),
     ])
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| ShaderCompileError(e.to_string()))?;
 
     let compiled = tera
         .render(&op.op_type.to_string(), &mut context)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| ShaderCompileError(e.to_string()))?;
     Ok(compiled)
 }

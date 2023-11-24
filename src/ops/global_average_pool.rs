@@ -1,3 +1,5 @@
+use crate::errors::GosonnxError;
+use crate::errors::GosonnxError::InvalidInputDimension;
 use serde::Serialize;
 
 use crate::graph::{Graph, Op};
@@ -18,21 +20,15 @@ impl Compile for &GlobalAveragePoolOp {
         op: &crate::graph::Op,
         shader_templ: &mut ShaderTemplate,
         graph: &crate::graph::Graph,
-    ) -> Result<(), String> {
-        // let mut tera = tera::Tera::default();
-        // let mut context = tera::Context::new();
-
-        // tera.add_raw_template("GlobaleAveragePool", shader_source)
-        //     .map_err(|e| e.to_string())?;
-
+    ) -> Result<(), GosonnxError> {
         let x = &graph.tensor_map[&op.inputs[0]];
         let y = &graph.tensor_map[&op.outputs[0]];
 
         if x.shape().len() != 4 {
-            return Err(format!(
-                "GlobalAveragePool expects 4 dimensions, found {}",
-                x.shape().len()
-            ));
+            return Err(InvalidInputDimension {
+                expected: 4,
+                found: x.shape().len(),
+            });
         }
 
         shader_templ.push_attr("X_type", &x.type_glsl());

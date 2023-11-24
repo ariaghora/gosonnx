@@ -5,3 +5,4 @@ pub mod ops;
 pub mod utils;
 #[macro_use]
 pub mod macros;
+mod errors;

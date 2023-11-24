@@ -1,3 +1,5 @@
+use crate::errors::GosonnxError;
+use crate::errors::GosonnxError::Error;
 use serde::Serialize;
 
 use crate::graph::{Graph, Op};
@@ -43,10 +45,10 @@ impl Compile for &ConvTransposeOp {
         op: &Op,
         shader_template: &mut ShaderTemplate,
         graph: &Graph,
-    ) -> Result<(), String> {
+    ) -> Result<(), GosonnxError> {
         if let Some(g) = self.group {
             if g > 1 {
-                return Err("Only group=1 is supported".into());
+                return Err(Error("Only group=1 is supported".to_string()));
             }
         }
 

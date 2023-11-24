@@ -25,7 +25,7 @@ macro_rules! define_ops {
                 shader_source: &str,
                 op: &'gr Op,
                 graph: &'gr Graph,
-            ) -> Result<(String, [u32; 3]), String> {
+            ) -> Result<(String, [u32; 3]), GosonnxError> {
                 let (compiled, wg) = match self {
                     $(
                         OpType::$variant { attr } => {
@@ -33,7 +33,7 @@ macro_rules! define_ops {
                         },
                     )+
                     OpType::Unknown => {
-                        return Err(format!("Op `{:?}` is unsupported yet", op.op_type));
+                        return Err(Error(format!("Op `{:?}` is unsupported yet", op.op_type)));
                     }
                 };
                 Ok((compiled, wg))

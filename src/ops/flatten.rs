@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+use crate::errors::GosonnxError;
+use crate::errors::GosonnxError::Error;
 use crate::{
     graph::{Graph, Op},
     ops::to_csv_str,
@@ -24,9 +26,9 @@ impl Compile for &FlattenOp {
         op: &crate::graph::Op,
         shader_templ: &mut ShaderTemplate,
         graph: &crate::graph::Graph,
-    ) -> Result<(), String> {
+    ) -> Result<(), GosonnxError> {
         if self.axis < 0 {
-            return Err("Cannot handle negative axis yet".into());
+            return Err(Error("Cannot handle negative axis yet".into()));
         }
 
         let x = &graph.tensor_map[&op.inputs[0]];

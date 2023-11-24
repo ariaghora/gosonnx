@@ -2,6 +2,7 @@
 mod test {
     use std::error::Error;
 
+    use crate::errors::GosonnxError;
     use crate::{
         graph::{Graph, Tensor},
         ops::{un_op::UnOpElementwise, OpType},
@@ -9,11 +10,11 @@ mod test {
     };
 
     #[test]
-    fn test_relu() -> Result<(), Box<dyn Error>> {
+    fn test_sigmoid() -> Result<(), GosonnxError> {
         let mut graph = Graph::new();
         let in_data = vec![0.5, -1.0, 2.0];
-        graph.new_tensor_f32("X", Some(in_data.clone()), vec![1, 3]);
-        graph.new_tensor_f32("Y", None, vec![1, 3]);
+        graph.new_tensor_f32("X", Some(in_data.clone()), vec![1, 3])?;
+        graph.new_tensor_f32("Y", None, vec![1, 3])?;
         graph
             .new_op(
                 vec!["X"],
@@ -25,7 +26,7 @@ mod test {
             )
             .unwrap();
 
-        graph.run()?;
+        graph.run().unwrap();
         if let Some(result) = graph.get_output("Y") {
             if let Tensor::F32 { values, shape } = result {
                 assert!(vec_close(

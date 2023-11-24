@@ -1,5 +1,7 @@
 use protobuf::Message;
 
+use crate::errors::GosonnxError;
+use crate::errors::GosonnxError::Error;
 use crate::gpu::GPUExecutor;
 use crate::onnx;
 use crate::onnx::onnx::{TensorProto, ValueInfoProto};
@@ -150,7 +152,7 @@ impl Graph {
         output_names: Vec<&str>,
         op_name: &str,
         op_type: OpType,
-    ) -> Result<(), String> {
+    ) -> Result<(), GosonnxError> {
         self.op_map.insert(
             op_name.into(),
             Op {
@@ -167,7 +169,7 @@ impl Graph {
 
     /// For all (A, B) node pairs in graph, connect A and B if A.outputs intersects
     /// with B.inputs and A != B
-    pub(crate) fn compile(&mut self) -> Result<(), String> {
+    pub(crate) fn compile(&mut self) -> Result<(), GosonnxError> {
         let node_names = {
             let keys = self.op_map.keys();
             keys.into_iter()
@@ -200,7 +202,7 @@ impl Graph {
         Ok(())
     }
 
-    pub fn run(&mut self) -> Result<(), String> {
+    pub fn run(&mut self) -> Result<(), GosonnxError> {
         self.compile()?;
 
         // Initialize GPU executor and run it!
@@ -210,9 +212,20 @@ impl Graph {
         Ok(())
     }
 
-    pub fn new_tensor_f32(&mut self, tensor_name: &str, values: Option<Vec<f32>>, shape: Vec<i64>) {
+    fn len_and_shape_valid<T>(vals: Vec<T>, shape: Vec<i64>) -> bool {
+        let len = shape.iter().fold(1, |x, y| x * y);
+        vals.len() == len as usize
+    }
+
+    pub fn new_tensor_f32(
+        &mut self,
+        tensor_name: &str,
+        values: Option<Vec<f32>>,
+        shape: Vec<i64>,
+    ) -> Result<(), GosonnxError> {
         self.tensor_map
             .insert(tensor_name.into(), Tensor::F32 { values, shape });
+        Ok(())
     }
 
     pub fn new_tensor_i64(&mut self, tensor_name: &str, values: Option<Vec<i64>>, shape: Vec<i64>) {
@@ -247,10 +260,10 @@ impl Graph {
         }
         outputs
     }
-    pub fn open_onnx(filename: &str) -> Result<Graph, Box<dyn std::error::Error>> {
-        let model_bytes = std::fs::read(filename).map_err(|e| e.to_string())?;
-        let mut model_proto =
-            onnx::onnx::ModelProto::parse_from_bytes(&model_bytes).map_err(|e| e.to_string())?;
+    pub fn open_onnx(filename: &str) -> Result<Graph, GosonnxError> {
+        let model_bytes = std::fs::read(filename).map_err(|e| Error(e.to_string()))?;
+        let mut model_proto = onnx::onnx::ModelProto::parse_from_bytes(&model_bytes)
+            .map_err(|e| Error(e.to_string()))?;
         let graph = onnx::onnxparser::parse_model_proto(&mut model_proto)?;
         Ok(graph)
     }
@@ -265,13 +278,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn open_onnx() -> Result<(), Box<dyn Error>> {
+    fn open_onnx() -> Result<(), GosonnxError> {
         let mut graph = Graph::open_onnx("data/models/doc_classifier_model.onnx")?;
         graph.new_tensor_f32(
             "input",
             Some(vec![0.0; 255 * 255 * 3]),
             vec![1, 3, 255, 255],
-        );
+        )?;
         assert_eq!(graph.op_map.keys().len(), 13);
         graph.run()?;
         Ok(())

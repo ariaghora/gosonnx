@@ -1,3 +1,5 @@
+use crate::errors::GosonnxError;
+use crate::errors::GosonnxError::InvalidInputNo;
 use crate::graph::{Graph, Op};
 use crate::ops::{Compile, ShaderTemplate};
 use crate::utils::tensor_len;
@@ -18,13 +20,13 @@ impl Compile for &ClipOp {
         op: &Op,
         shader_templ: &mut ShaderTemplate,
         graph: &Graph,
-    ) -> Result<(), String> {
+    ) -> Result<(), GosonnxError> {
         // TODO: handle dynamic inputs
         if op.inputs.len() != 3 {
-            return Err(format!(
-                "Clip requires exactly 3 inputs, found {}",
-                op.inputs.len()
-            ));
+            return Err(InvalidInputNo {
+                expected: 3,
+                found: op.inputs.len(),
+            });
         }
 
         let input = &graph.tensor_map[&op.inputs[0]];
@@ -50,6 +52,7 @@ impl Compile for &ClipOp {
 mod test {
     use std::error::Error;
 
+    use crate::errors::GosonnxError;
     use crate::ops::clip::ClipOp;
     use crate::{
         attribute,
@@ -58,20 +61,18 @@ mod test {
     };
 
     #[test]
-    fn simple_clip() -> Result<(), Box<dyn Error>> {
+    fn simple_clip() -> Result<(), GosonnxError> {
         let mut graph = Graph::new();
-        graph.new_tensor_f32("X", Some(vec![-5., 3., 5.]), vec![1, 3]);
-        graph.new_tensor_f32("min", Some(vec![-3.0]), vec![]);
-        graph.new_tensor_f32("max", Some(vec![3.0]), vec![]);
-        graph.new_tensor_f32("Y", None, vec![1, 3]);
-        graph
-            .new_op(
-                vec!["X", "min", "max"],
-                vec!["Y"],
-                "my_clip",
-                OpType::Clip { attr: ClipOp {} },
-            )
-            .unwrap();
+        graph.new_tensor_f32("X", Some(vec![-5., 3., 5.]), vec![1, 3])?;
+        graph.new_tensor_f32("min", Some(vec![-3.0]), vec![])?;
+        graph.new_tensor_f32("max", Some(vec![3.0]), vec![])?;
+        graph.new_tensor_f32("Y", None, vec![1, 3])?;
+        graph.new_op(
+            vec!["X", "min", "max"],
+            vec!["Y"],
+            "my_clip",
+            OpType::Clip { attr: ClipOp {} },
+        )?;
 
         graph.run()?;
         if let Some(result) = graph.get_output("Y") {

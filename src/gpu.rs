@@ -1,3 +1,4 @@
+use crate::errors::GosonnxError;
 use crate::graph::{Graph, Op, Tensor};
 use crate::utils::tensor_len;
 use include_dir::{include_dir, Dir};
@@ -82,11 +83,11 @@ impl GPUExecutor {
         }
     }
 
-    pub fn execute(&mut self, graph: &mut Graph) -> Result<(), String> {
+    pub fn execute(&mut self, graph: &mut Graph) -> Result<(), GosonnxError> {
         pollster::block_on(self.execute_async(graph))
     }
 
-    async fn execute_async(&mut self, graph: &mut Graph) -> Result<(), String> {
+    async fn execute_async(&mut self, graph: &mut Graph) -> Result<(), GosonnxError> {
         let (device, queue) = self.create_device().await?;
 
         // Prepare storage buffers
@@ -207,7 +208,7 @@ impl GPUExecutor {
         command_encoder: &mut wgpu::CommandEncoder,
         op: &Op,
         num_work_groups: &[u32],
-    ) -> Result<(), String> {
+    ) -> Result<(), GosonnxError> {
         let mut defines = naga::FastHashMap::default();
         defines.insert("GL_EXT_debug_printf".into(), "enable".into());
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -285,7 +286,7 @@ impl GPUExecutor {
         Ok(())
     }
 
-    async fn create_device(&self) -> Result<(wgpu::Device, wgpu::Queue), String> {
+    async fn create_device(&self) -> Result<(wgpu::Device, wgpu::Queue), GosonnxError> {
         let instance = wgpu::Instance::default();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions::default())

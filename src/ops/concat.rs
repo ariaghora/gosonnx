@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::errors::GosonnxError;
 use crate::{graph::Tensor, utils::tensor_len};
 
 use super::{bin_op::shape_to_strides, to_csv_str, Compile};
@@ -29,7 +30,7 @@ impl Compile for &ConcatOp {
         op: &crate::graph::Op,
         shader_templ: &mut super::ShaderTemplate,
         graph: &crate::graph::Graph,
-    ) -> Result<(), String> {
+    ) -> Result<(), GosonnxError> {
         let inputs: Vec<&Tensor> = op.inputs.iter().map(|v| &graph.tensor_map[v]).collect();
         let output = &graph.tensor_map[&op.outputs[0]];
 
