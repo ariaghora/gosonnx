@@ -1,7 +1,5 @@
 #[cfg(test)]
 mod test {
-    use std::error::Error;
-
     use crate::errors::GosonnxError;
     use crate::{
         attribute,
@@ -13,8 +11,10 @@ mod test {
     fn test_hard_sigmoid() -> Result<(), GosonnxError> {
         let mut graph = Graph::new();
         let in_data = vec![-1., 0., 2., 4.];
-        graph.new_tensor_f32("X", Some(in_data.clone()), vec![1, 4]);
-        graph.new_tensor_f32("Y", None, vec![1, 4]);
+        graph
+            .new_tensor_f32("X", Some(in_data.clone()), vec![1, 4])
+            .unwrap();
+        graph.new_tensor_f32("Y", None, vec![1, 4]).unwrap();
         graph
             .new_op(
                 vec!["X"],

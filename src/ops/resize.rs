@@ -1,11 +1,13 @@
+use serde::Serialize;
+
 use crate::errors::GosonnxError;
 use crate::errors::GosonnxError::{
     Error, InvalidInputDimension, InvalidInputNo, InvalidType, UnknownTensorType,
 };
 use crate::graph::{Tensor, TensorType};
-use serde::Serialize;
 
 use super::{to_csv_str, Compile};
+
 #[derive(Debug, Serialize)]
 pub struct ResizeOp {
     antialias: Option<i64>,

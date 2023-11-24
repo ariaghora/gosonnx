@@ -1,10 +1,12 @@
+use std::{borrow::Cow, collections::HashMap, fmt::Debug};
+
+use include_dir::{include_dir, Dir};
+use wgpu::util::DeviceExt;
+use wgpu::Limits;
+
 use crate::errors::GosonnxError;
 use crate::graph::{Graph, Op, Tensor};
 use crate::utils::tensor_len;
-use include_dir::{include_dir, Dir};
-use std::{borrow::Cow, collections::HashMap, fmt::Debug};
-use wgpu::util::DeviceExt;
-use wgpu::Limits;
 
 pub static SHADER_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/shader");
 

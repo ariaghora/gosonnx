@@ -1,6 +1,6 @@
-use crate::errors::GosonnxError;
 use serde::Serialize;
 
+use crate::errors::GosonnxError;
 use crate::graph::{Graph, Op};
 
 use super::{to_csv_str, Compile, ShaderTemplate};
@@ -82,6 +82,7 @@ impl Compile for &ConvOp {
 
 #[cfg(test)]
 mod test {
+    use crate::errors::GosonnxError;
     use crate::{
         graph::{Graph, Tensor},
         ops::OpType,
@@ -92,23 +93,30 @@ mod test {
     #[test]
     fn conv_and_bias() {
         let mut graph = Graph::new();
-        graph.new_tensor_f32(
-            "X",
-            Some(vec![
-                1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0,
-                -7.0, -8.0, -9.0,
-            ]),
-            vec![1, 2, 3, 3],
-        );
-        graph.new_tensor_f32(
-            "W",
-            Some(vec![
-                0.0, 1.0, -1.0, 0.0, 1.0, 0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 1.0, 0.0, -1.0, 1.0, 0.0,
-            ]),
-            vec![2, 2, 2, 2],
-        );
-        graph.new_tensor_f32("b", Some(vec![1.0, -1.0]), vec![2]);
-        graph.new_tensor_f32("Y", None, vec![1, 2, 2, 2]);
+        graph
+            .new_tensor_f32(
+                "X",
+                Some(vec![
+                    1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, -1.0, -2.0, -3.0, -4.0, -5.0,
+                    -6.0, -7.0, -8.0, -9.0,
+                ]),
+                vec![1, 2, 3, 3],
+            )
+            .unwrap();
+        graph
+            .new_tensor_f32(
+                "W",
+                Some(vec![
+                    0.0, 1.0, -1.0, 0.0, 1.0, 0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 1.0, 0.0, -1.0, 1.0,
+                    0.0,
+                ]),
+                vec![2, 2, 2, 2],
+            )
+            .unwrap();
+        graph
+            .new_tensor_f32("b", Some(vec![1.0, -1.0]), vec![2])
+            .unwrap();
+        graph.new_tensor_f32("Y", None, vec![1, 2, 2, 2]).unwrap();
         graph
             .new_op(
                 vec!["X", "W", "b"],
@@ -129,22 +137,27 @@ mod test {
     #[test]
     fn conv_without_bias() {
         let mut graph = Graph::new();
-        graph.new_tensor_f32(
-            "X",
-            Some(vec![
-                1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0,
-                -7.0, -8.0, -9.0,
-            ]),
-            vec![1, 2, 3, 3],
-        );
-        graph.new_tensor_f32(
-            "W",
-            Some(vec![
-                0.0, 1.0, -1.0, 0.0, 1.0, 0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 1.0, 0.0, -1.0, 1.0, 0.0,
-            ]),
-            vec![2, 2, 2, 2],
-        );
-        graph.new_tensor_f32("Y", None, vec![1, 2, 2, 2]);
+        graph
+            .new_tensor_f32(
+                "X",
+                Some(vec![
+                    1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, -1.0, -2.0, -3.0, -4.0, -5.0,
+                    -6.0, -7.0, -8.0, -9.0,
+                ]),
+                vec![1, 2, 3, 3],
+            )
+            .unwrap();
+        graph
+            .new_tensor_f32(
+                "W",
+                Some(vec![
+                    0.0, 1.0, -1.0, 0.0, 1.0, 0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 1.0, 0.0, -1.0, 1.0,
+                    0.0,
+                ]),
+                vec![2, 2, 2, 2],
+            )
+            .unwrap();
+        graph.new_tensor_f32("Y", None, vec![1, 2, 2, 2]).unwrap();
         graph
             .new_op(
                 vec!["X", "W"],
@@ -165,23 +178,27 @@ mod test {
     #[test]
     fn conv_larger_bias() {
         let mut graph = Graph::new();
-        graph.new_tensor_f32(
-            "X",
-            Some(vec![
-                0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0,
-                15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0, 26.0,
-            ]),
-            vec![1, 3, 3, 3],
-        );
-        graph.new_tensor_f32(
-            "W",
-            Some(vec![
-                0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0,
-                15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0,
-            ]),
-            vec![2, 3, 2, 2],
-        );
-        graph.new_tensor_f32("Y", None, vec![1, 2, 2, 2]);
+        graph
+            .new_tensor_f32(
+                "X",
+                Some(vec![
+                    0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0,
+                    15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0, 26.0,
+                ]),
+                vec![1, 3, 3, 3],
+            )
+            .unwrap();
+        graph
+            .new_tensor_f32(
+                "W",
+                Some(vec![
+                    0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0,
+                    15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0,
+                ]),
+                vec![2, 3, 2, 2],
+            )
+            .unwrap();
+        graph.new_tensor_f32("Y", None, vec![1, 2, 2, 2]).unwrap();
         graph
             .new_op(
                 vec!["X", "W"],
@@ -205,31 +222,29 @@ mod test {
     }
 
     #[test]
-    fn conv_and_bias_grouped() {
+    fn conv_and_bias_grouped() -> Result<(), GosonnxError> {
         let mut graph = Graph::new();
         graph.new_tensor_f32(
             "X",
             Some((1..=64).map(|v| v as f32).collect()),
             vec![1, 4, 4, 4],
-        );
+        )?;
         graph.new_tensor_f32(
             "W",
             Some((0..4 * 2 * 3 * 3).map(|v| v as f32).collect()),
             vec![4, 2, 3, 3],
-        );
-        graph.new_tensor_f32("b", Some(vec![1.0, 1.0, 2.0, 2.0]), vec![2]);
-        graph.new_tensor_f32("Y", None, vec![1, 4, 2, 2]);
-        graph
-            .new_op(
-                vec!["X", "W", "b"],
-                vec!["Y"],
-                "my_conv",
-                OpType::Conv {
-                    attr: ConvOp::new(vec![1, 1], 2, vec![3, 3], vec![0, 0, 0, 0], vec![1, 1]),
-                },
-            )
-            .unwrap();
-        graph.run().unwrap();
+        )?;
+        graph.new_tensor_f32("b", Some(vec![1.0, 1.0, 2.0, 2.0]), vec![4])?;
+        graph.new_tensor_f32("Y", None, vec![1, 4, 2, 2])?;
+        graph.new_op(
+            vec!["X", "W", "b"],
+            vec!["Y"],
+            "my_conv",
+            OpType::Conv {
+                attr: ConvOp::new(vec![1, 1], 2, vec![3, 3], vec![0, 0, 0, 0], vec![1, 1]),
+            },
+        )?;
+        graph.run()?;
         let out = graph.get_output("Y").unwrap();
         if let Tensor::F32 { values, .. } = out {
             assert_eq!(
@@ -240,5 +255,6 @@ mod test {
                 ])
             );
         }
+        Ok(())
     }
 }

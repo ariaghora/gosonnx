@@ -1,7 +1,7 @@
-use crate::errors::GosonnxError;
-use crate::errors::GosonnxError::{AttributeNotFound, InvalidInputDimension};
 use serde::Serialize;
 
+use crate::errors::GosonnxError;
+use crate::errors::GosonnxError::{AttributeNotFound, InvalidInputDimension};
 use crate::graph::{Graph, Op};
 
 use super::{to_csv_str, Compile, ShaderTemplate};
@@ -38,9 +38,9 @@ impl AveragePoolOp {
 impl Compile for &AveragePoolOp {
     fn compile(
         &self,
-        op: &crate::graph::Op,
+        op: &Op,
         shader_templ: &mut ShaderTemplate,
-        graph: &crate::graph::Graph,
+        graph: &Graph,
     ) -> Result<(), GosonnxError> {
         let x = &graph.tensor_map[&op.inputs[0]];
         let y = &graph.tensor_map[&op.outputs[0]];
@@ -100,6 +100,7 @@ impl Compile for &AveragePoolOp {
 
 #[cfg(test)]
 mod test {
+    use crate::errors::GosonnxError;
     use crate::{
         graph::{Graph, Tensor},
         ops::OpType,
@@ -108,36 +109,35 @@ mod test {
     use super::AveragePoolOp;
 
     #[test]
-    fn simple_global_average_pool() {
+    fn simple_global_average_pool() -> Result<(), GosonnxError> {
         let mut graph = Graph::new();
         graph.new_tensor_f32(
             "X",
             Some((1..=18).map(|v| v as f32).collect()),
             vec![1, 2, 3, 3],
-        );
+        )?;
 
-        graph.new_tensor_f32("Y", None, vec![1, 2, 2, 2]);
-        graph
-            .new_op(
-                vec!["X"],
-                vec!["Y"],
-                "avg_pool",
-                OpType::AveragePool {
-                    attr: AveragePoolOp::new(
-                        None,
-                        Some(0),
-                        Some(vec![1, 1]),
-                        Some(vec![2, 2]),
-                        Some(vec![0, 0, 0, 0]),
-                        Some(vec![1, 1]),
-                    ),
-                },
-            )
-            .unwrap();
+        graph.new_tensor_f32("Y", None, vec![1, 2, 2, 2])?;
+        graph.new_op(
+            vec!["X"],
+            vec!["Y"],
+            "avg_pool",
+            OpType::AveragePool {
+                attr: AveragePoolOp::new(
+                    None,
+                    Some(0),
+                    Some(vec![1, 1]),
+                    Some(vec![2, 2]),
+                    Some(vec![0, 0, 0, 0]),
+                    Some(vec![1, 1]),
+                ),
+            },
+        )?;
         graph.run().unwrap();
         let out = graph.get_output("Y").unwrap();
         if let Tensor::F32 { values, .. } = out {
             assert_eq!(values, &Some(vec![3., 4., 6., 7., 12., 13., 15., 16.]));
         }
+        Ok(())
     }
 }

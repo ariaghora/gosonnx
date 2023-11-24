@@ -74,6 +74,7 @@ impl Compile for &ConcatOp {
 
 #[cfg(test)]
 mod test {
+    use crate::errors::GosonnxError;
     use crate::{
         graph::{Graph, Tensor},
         ops::OpType,
@@ -82,12 +83,12 @@ mod test {
     use super::ConcatOp;
 
     #[test]
-    fn test_concat_0() {
+    fn test_concat_0() -> Result<(), GosonnxError> {
         let mut graph = Graph::new();
-        graph.new_tensor_f32("t1", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![1, 1, 2, 2]);
-        graph.new_tensor_f32("t2", Some(vec![5.0, 6.0, 7.0, 8.0]), vec![1, 1, 2, 2]);
-        graph.new_tensor_f32("t3", Some(vec![-1.0, -2.0, -3.0, -4.0]), vec![1, 1, 2, 2]);
-        graph.new_tensor_f32("y", None, vec![3, 1, 2, 2]);
+        graph.new_tensor_f32("t1", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![1, 1, 2, 2])?;
+        graph.new_tensor_f32("t2", Some(vec![5.0, 6.0, 7.0, 8.0]), vec![1, 1, 2, 2])?;
+        graph.new_tensor_f32("t3", Some(vec![-1.0, -2.0, -3.0, -4.0]), vec![1, 1, 2, 2])?;
+        graph.new_tensor_f32("y", None, vec![3, 1, 2, 2])?;
         graph
             .new_op(
                 vec!["t1", "t2", "t3"],
@@ -108,15 +109,16 @@ mod test {
                 ])
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn test_concat_2() {
+    fn test_concat_2() -> Result<(), GosonnxError> {
         let mut graph = Graph::new();
-        graph.new_tensor_f32("t1", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![1, 1, 2, 2]);
-        graph.new_tensor_f32("t2", Some(vec![5.0, 6.0, 7.0, 8.0]), vec![1, 1, 2, 2]);
-        graph.new_tensor_f32("t3", Some(vec![-1.0, -2.0, -3.0, -4.0]), vec![1, 1, 2, 2]);
-        graph.new_tensor_f32("y", None, vec![1, 1, 6, 2]);
+        graph.new_tensor_f32("t1", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![1, 1, 2, 2])?;
+        graph.new_tensor_f32("t2", Some(vec![5.0, 6.0, 7.0, 8.0]), vec![1, 1, 2, 2])?;
+        graph.new_tensor_f32("t3", Some(vec![-1.0, -2.0, -3.0, -4.0]), vec![1, 1, 2, 2])?;
+        graph.new_tensor_f32("y", None, vec![1, 1, 6, 2])?;
         graph
             .new_op(
                 vec!["t1", "t2", "t3"],
@@ -137,15 +139,16 @@ mod test {
                 ])
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn test_concat_3() {
+    fn test_concat_3() -> Result<(), GosonnxError> {
         let mut graph = Graph::new();
-        graph.new_tensor_f32("t1", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![1, 1, 2, 2]);
-        graph.new_tensor_f32("t2", Some(vec![5.0, 6.0, 7.0, 8.0]), vec![1, 1, 2, 2]);
-        graph.new_tensor_f32("t3", Some(vec![-1.0, -2.0, -3.0, -4.0]), vec![1, 1, 2, 2]);
-        graph.new_tensor_f32("y", None, vec![1, 1, 2, 6]);
+        graph.new_tensor_f32("t1", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![1, 1, 2, 2])?;
+        graph.new_tensor_f32("t2", Some(vec![5.0, 6.0, 7.0, 8.0]), vec![1, 1, 2, 2])?;
+        graph.new_tensor_f32("t3", Some(vec![-1.0, -2.0, -3.0, -4.0]), vec![1, 1, 2, 2])?;
+        graph.new_tensor_f32("y", None, vec![1, 1, 2, 6])?;
         graph
             .new_op(
                 vec!["t1", "t2", "t3"],
@@ -166,15 +169,16 @@ mod test {
                 ])
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn test_concat_2_2x1x2() {
+    fn test_concat_2_2x1x2() -> Result<(), GosonnxError> {
         let mut graph = Graph::new();
-        graph.new_tensor_f32("t1", Some(vec![1.0, 1.0, 1.0, 1.0]), vec![2, 1, 2]);
-        graph.new_tensor_f32("t2", Some(vec![2.0, 2.0, 2.0, 2.0]), vec![2, 1, 2]);
-        graph.new_tensor_f32("t3", Some(vec![3.0, 3.0, 3.0, 3.0]), vec![2, 1, 2]);
-        graph.new_tensor_f32("y", None, vec![2, 1, 6]);
+        graph.new_tensor_f32("t1", Some(vec![1.0, 1.0, 1.0, 1.0]), vec![2, 1, 2])?;
+        graph.new_tensor_f32("t2", Some(vec![2.0, 2.0, 2.0, 2.0]), vec![2, 1, 2])?;
+        graph.new_tensor_f32("t3", Some(vec![3.0, 3.0, 3.0, 3.0]), vec![2, 1, 2])?;
+        graph.new_tensor_f32("y", None, vec![2, 1, 6])?;
         graph
             .new_op(
                 vec!["t1", "t2", "t3"],
@@ -195,5 +199,6 @@ mod test {
                 ])
             );
         }
+        Ok(())
     }
 }

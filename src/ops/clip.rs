@@ -1,9 +1,10 @@
+use serde::Serialize;
+
 use crate::errors::GosonnxError;
 use crate::errors::GosonnxError::InvalidInputNo;
 use crate::graph::{Graph, Op};
 use crate::ops::{Compile, ShaderTemplate};
 use crate::utils::tensor_len;
-use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 pub struct ClipOp {}

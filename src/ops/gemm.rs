@@ -1,7 +1,7 @@
-use crate::errors::GosonnxError;
-use crate::errors::GosonnxError::{Error, OpsOnIncompatibleTypeError};
 use serde::Serialize;
 
+use crate::errors::GosonnxError;
+use crate::errors::GosonnxError::{Error, OpsOnIncompatibleTypeError};
 use crate::graph::{Graph, Op};
 
 use super::{Compile, ShaderTemplate};
@@ -118,9 +118,13 @@ mod tests {
     #[test]
     fn simple_gemm() {
         let mut graph = Graph::new();
-        graph.new_tensor_f32("X", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![2, 2]);
-        graph.new_tensor_f32("Y", Some(vec![1.0, 1.0]), vec![2, 1]);
-        graph.new_tensor_f32("output", None, vec![2, 1]);
+        graph
+            .new_tensor_f32("X", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![2, 2])
+            .unwrap();
+        graph
+            .new_tensor_f32("Y", Some(vec![1.0, 1.0]), vec![2, 1])
+            .unwrap();
+        graph.new_tensor_f32("output", None, vec![2, 1]).unwrap();
         graph
             .new_op(
                 vec!["X", "Y"],
@@ -146,9 +150,13 @@ mod tests {
     #[test]
     fn gemm_2x2() {
         let mut graph = Graph::new();
-        graph.new_tensor_f32("X", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![2, 2]);
-        graph.new_tensor_f32("Y", Some(vec![1.0, 1.0, 2.0, 2.0]), vec![2, 2]);
-        graph.new_tensor_f32("output", None, vec![2, 2]);
+        graph
+            .new_tensor_f32("X", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![2, 2])
+            .unwrap();
+        graph
+            .new_tensor_f32("Y", Some(vec![1.0, 1.0, 2.0, 2.0]), vec![2, 2])
+            .unwrap();
+        graph.new_tensor_f32("output", None, vec![2, 2]).unwrap();
         graph
             .new_op(
                 vec!["X", "Y"],
@@ -174,13 +182,17 @@ mod tests {
     #[test]
     fn gemm_5x2() {
         let mut graph = Graph::new();
-        graph.new_tensor_f32(
-            "X",
-            Some(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
-            vec![5, 2],
-        );
-        graph.new_tensor_f32("Y", Some(vec![1.0, 1.0, 2.0, 2.0]), vec![2, 2]);
-        graph.new_tensor_f32("output", None, vec![5, 2]);
+        graph
+            .new_tensor_f32(
+                "X",
+                Some(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
+                vec![5, 2],
+            )
+            .unwrap();
+        graph
+            .new_tensor_f32("Y", Some(vec![1.0, 1.0, 2.0, 2.0]), vec![2, 2])
+            .unwrap();
+        graph.new_tensor_f32("output", None, vec![5, 2]).unwrap();
         graph
             .new_op(
                 vec!["X", "Y"],
@@ -211,10 +223,16 @@ mod tests {
     #[test]
     fn gemm_bias_no_broadcast() {
         let mut graph = Graph::new();
-        graph.new_tensor_f32("X", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![2, 2]);
-        graph.new_tensor_f32("Y", Some(vec![1.0, 1.0, 2.0, 2.0]), vec![2, 2]);
-        graph.new_tensor_f32("bias", Some(vec![2.0, 2.0, 3.0, 3.0]), vec![2, 2]);
-        graph.new_tensor_f32("output", None, vec![2, 2]);
+        graph
+            .new_tensor_f32("X", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![2, 2])
+            .unwrap();
+        graph
+            .new_tensor_f32("Y", Some(vec![1.0, 1.0, 2.0, 2.0]), vec![2, 2])
+            .unwrap();
+        graph
+            .new_tensor_f32("bias", Some(vec![2.0, 2.0, 3.0, 3.0]), vec![2, 2])
+            .unwrap();
+        graph.new_tensor_f32("output", None, vec![2, 2]).unwrap();
         graph
             .new_op(
                 vec!["X", "Y", "bias"],
@@ -240,10 +258,16 @@ mod tests {
     #[test]
     fn gemm_bias_broadcast() {
         let mut graph = Graph::new();
-        graph.new_tensor_f32("X", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![2, 2]);
-        graph.new_tensor_f32("Y", Some(vec![1.0, 1.0, 2.0, 2.0]), vec![2, 2]);
-        graph.new_tensor_f32("bias", Some(vec![2.0, 3.0]), vec![2, 1]);
-        graph.new_tensor_f32("output", None, vec![2, 2]);
+        graph
+            .new_tensor_f32("X", Some(vec![1.0, 2.0, 3.0, 4.0]), vec![2, 2])
+            .unwrap();
+        graph
+            .new_tensor_f32("Y", Some(vec![1.0, 1.0, 2.0, 2.0]), vec![2, 2])
+            .unwrap();
+        graph
+            .new_tensor_f32("bias", Some(vec![2.0, 3.0]), vec![2, 1])
+            .unwrap();
+        graph.new_tensor_f32("output", None, vec![2, 2]).unwrap();
         graph
             .new_op(
                 vec!["X", "Y", "bias"],
@@ -268,9 +292,13 @@ mod tests {
     #[test]
     fn gemm_3x3_trans_b() {
         let mut graph = Graph::new();
-        graph.new_tensor_f32("X", Some((1..=9).map(|v| v as f32).collect()), vec![3, 3]);
-        graph.new_tensor_f32("Y", Some((1..=9).map(|v| v as f32).collect()), vec![3, 3]);
-        graph.new_tensor_f32("output", None, vec![3, 3]);
+        graph
+            .new_tensor_f32("X", Some((1..=9).map(|v| v as f32).collect()), vec![3, 3])
+            .unwrap();
+        graph
+            .new_tensor_f32("Y", Some((1..=9).map(|v| v as f32).collect()), vec![3, 3])
+            .unwrap();
+        graph.new_tensor_f32("output", None, vec![3, 3]).unwrap();
         graph
             .new_op(
                 vec!["X", "Y"],

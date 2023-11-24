@@ -1,5 +1,3 @@
-use crate::errors::GosonnxError::TensorCreateError;
-
 #[derive(Debug)]
 pub enum GosonnxError {
     AttributeNotFound(String),

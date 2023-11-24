@@ -1,7 +1,5 @@
 #[cfg(test)]
 mod test {
-    use std::error::Error;
-
     use crate::errors::GosonnxError;
     use crate::{
         graph::{Graph, Tensor},

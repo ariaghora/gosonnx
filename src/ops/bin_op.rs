@@ -1,4 +1,5 @@
-use super::{Compile, ShaderTemplate};
+use serde::Serialize;
+
 use crate::errors::GosonnxError;
 use crate::errors::GosonnxError::IncompatibleShape;
 use crate::{
@@ -6,7 +7,8 @@ use crate::{
     ops::to_csv_str,
     utils::tensor_len,
 };
-use serde::Serialize;
+
+use super::{Compile, ShaderTemplate};
 
 #[derive(Debug, Serialize)]
 pub struct BinOpElementwise;
@@ -263,9 +265,13 @@ mod test {
     #[test]
     fn div_no_bcast() {
         let mut graph = Graph::new();
-        graph.new_tensor_f32("A", Some((1..10).map(|v| v as f32).collect()), vec![3, 3]);
-        graph.new_tensor_f32("B", Some((1..10).map(|_| 2.0).collect()), vec![3, 3]);
-        graph.new_tensor_f32("Y", None, vec![3, 3]);
+        graph
+            .new_tensor_f32("A", Some((1..10).map(|v| v as f32).collect()), vec![3, 3])
+            .unwrap();
+        graph
+            .new_tensor_f32("B", Some((1..10).map(|_| 2.0).collect()), vec![3, 3])
+            .unwrap();
+        graph.new_tensor_f32("Y", None, vec![3, 3]).unwrap();
         graph
             .new_op(
                 vec!["A", "B"],

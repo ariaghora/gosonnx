@@ -1,12 +1,13 @@
+use std::{cell::RefCell, collections::HashMap};
+
 use protobuf::Message;
 
 use crate::errors::GosonnxError;
-use crate::errors::GosonnxError::Error;
+use crate::errors::GosonnxError::{Error, TensorCreateError};
 use crate::gpu::GPUExecutor;
 use crate::onnx;
 use crate::onnx::onnx::{TensorProto, ValueInfoProto};
 use crate::ops::OpType;
-use std::{cell::RefCell, collections::HashMap};
 
 #[derive(Debug)]
 pub enum TensorType {
@@ -212,7 +213,7 @@ impl Graph {
         Ok(())
     }
 
-    fn len_and_shape_valid<T>(vals: Vec<T>, shape: Vec<i64>) -> bool {
+    fn len_and_shape_valid<T>(&self, vals: &Vec<T>, shape: &Vec<i64>) -> bool {
         let len = shape.iter().fold(1, |x, y| x * y);
         vals.len() == len as usize
     }
@@ -223,14 +224,36 @@ impl Graph {
         values: Option<Vec<f32>>,
         shape: Vec<i64>,
     ) -> Result<(), GosonnxError> {
+        if let Some(vals) = &values {
+            if !self.len_and_shape_valid(vals, &shape) {
+                return Err(TensorCreateError(format!(
+                    "Cannot create f32 tensor and resize it to {:?}",
+                    shape
+                )));
+            }
+        }
         self.tensor_map
             .insert(tensor_name.into(), Tensor::F32 { values, shape });
         Ok(())
     }
 
-    pub fn new_tensor_i64(&mut self, tensor_name: &str, values: Option<Vec<i64>>, shape: Vec<i64>) {
+    pub fn new_tensor_i64(
+        &mut self,
+        tensor_name: &str,
+        values: Option<Vec<i64>>,
+        shape: Vec<i64>,
+    ) -> Result<(), GosonnxError> {
+        if let Some(vals) = &values {
+            if !self.len_and_shape_valid(vals, &shape) {
+                return Err(TensorCreateError(format!(
+                    "Cannot create i64 tensor and resize it to {:#?}",
+                    shape
+                )));
+            }
+        }
         self.tensor_map
             .insert(tensor_name.into(), Tensor::I64 { values, shape });
+        Ok(())
     }
 
     pub fn get_output(&self, arg: &str) -> Option<&Tensor> {
@@ -273,8 +296,6 @@ pub fn run() {}
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
-
     use super::*;
 
     #[test]

@@ -1,3 +1,25 @@
+use std::fmt::{self, Debug, Display};
+
+use serde::Serialize;
+
+use crate::errors::GosonnxError;
+use crate::errors::GosonnxError::{Error, ShaderCompileError, UnsupportedONNXOps};
+use crate::ops::clip::ClipOp;
+use crate::{
+    attribute, define_ops,
+    gpu::SHADER_DIR,
+    graph::{Graph, Op},
+    onnx::onnx::NodeProto,
+    utils::{get_attr_f, get_attr_i, get_attr_ints, get_attr_string},
+};
+
+use self::{
+    average_pool::AveragePoolOp, bin_op::BinOpElementwise, concat::ConcatOp, conv::ConvOp,
+    conv_transpose::ConvTransposeOp, flatten::FlattenOp, gemm::GemmOp,
+    global_average_pool::GlobalAveragePoolOp, maxpool::MaxPoolOp, resize::ResizeOp,
+    un_op::UnOpElementwise,
+};
+
 pub mod add;
 pub mod average_pool;
 pub mod bin_op;
@@ -15,25 +37,6 @@ pub mod relu;
 pub mod resize;
 pub mod sigmoid;
 pub mod un_op;
-
-use self::{
-    average_pool::AveragePoolOp, bin_op::BinOpElementwise, concat::ConcatOp, conv::ConvOp,
-    conv_transpose::ConvTransposeOp, flatten::FlattenOp, gemm::GemmOp,
-    global_average_pool::GlobalAveragePoolOp, maxpool::MaxPoolOp, resize::ResizeOp,
-    un_op::UnOpElementwise,
-};
-use crate::errors::GosonnxError;
-use crate::errors::GosonnxError::{Error, ShaderCompileError, UnsupportedONNXOps};
-use crate::ops::clip::ClipOp;
-use crate::{
-    attribute, define_ops,
-    gpu::SHADER_DIR,
-    graph::{Graph, Op},
-    onnx::onnx::NodeProto,
-    utils::{get_attr_f, get_attr_i, get_attr_ints, get_attr_string},
-};
-use serde::Serialize;
-use std::fmt::{self, Debug, Display};
 
 define_ops!(
     Add { BinOpElementwise },

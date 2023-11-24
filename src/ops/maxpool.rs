@@ -82,15 +82,17 @@ mod test {
     #[test]
     fn simple_pool() {
         let mut graph = Graph::new();
-        graph.new_tensor_f32(
-            "X",
-            Some(vec![
-                1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0,
-                -7.0, -8.0, -9.0,
-            ]),
-            vec![1, 2, 3, 3],
-        );
-        graph.new_tensor_f32("Y", None, vec![1, 2, 2, 2]);
+        graph
+            .new_tensor_f32(
+                "X",
+                Some(vec![
+                    1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, -1.0, -2.0, -3.0, -4.0, -5.0,
+                    -6.0, -7.0, -8.0, -9.0,
+                ]),
+                vec![1, 2, 3, 3],
+            )
+            .unwrap();
+        graph.new_tensor_f32("Y", None, vec![1, 2, 2, 2]).unwrap();
         graph
             .new_op(
                 vec!["X"],
