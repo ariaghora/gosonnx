@@ -113,10 +113,10 @@ impl OpType {
                 attr: GlobalAveragePoolOp {},
             }),
             "HardSigmoid" => Ok(Self::HardSigmoid {
-                attr: UnOpElementwise::new(vec![attribute!(
-                    "alpha",
-                    get_attr_f(node_proto, "alpha")
-                )]),
+                attr: UnOpElementwise::new(vec![
+                    attribute!("alpha", get_attr_f(node_proto, "alpha").unwrap_or(0.2)),
+                    attribute!("beta", get_attr_f(node_proto, "beta").unwrap_or(0.5)),
+                ]),
             }),
             "Flatten" => Ok(Self::Flatten {
                 attr: FlattenOp::new(get_attr_i(node_proto, "axis").unwrap()),
