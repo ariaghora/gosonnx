@@ -22,6 +22,7 @@ use self::{
     global_average_pool::GlobalAveragePoolOp, maxpool::MaxPoolOp, resize::ResizeOp,
     un_op::UnOpElementwise,
 };
+use crate::ops::clip::ClipOp;
 use crate::{
     attribute, define_ops,
     gpu::SHADER_DIR,
@@ -35,7 +36,7 @@ use std::fmt::{self, Debug, Display};
 define_ops!(
     Add { BinOpElementwise },
     AveragePool { AveragePoolOp },
-    Clip { UnOpElementwise },
+    Clip { ClipOp },
     Concat { ConcatOp },
     Conv { ConvOp },
     ConvTranspose { ConvTransposeOp },
@@ -70,10 +71,7 @@ impl OpType {
                 ),
             }),
             "Clip" => Ok(Self::Clip {
-                attr: UnOpElementwise::new(vec![
-                    attribute!("min_val", get_attr_f(node_proto, "min")),
-                    attribute!("max_val", get_attr_f(node_proto, "max")),
-                ]),
+                attr: ClipOp::new(),
             }),
             "Concat" => Ok(Self::Concat {
                 attr: ConcatOp {
