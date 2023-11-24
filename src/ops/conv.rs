@@ -38,10 +38,6 @@ impl Compile for &ConvOp {
         shader_template: &mut ShaderTemplate,
         graph: &Graph,
     ) -> Result<(), String> {
-        if self.group > 1 {
-            return Err("Only group=1 is supported".into());
-        }
-
         let x = &graph.tensor_map[&op.inputs[0]];
         let w = &graph.tensor_map[&op.inputs[1]];
         let y = &graph.tensor_map[&op.outputs[0]];
@@ -202,6 +198,44 @@ mod test {
                 values,
                 &Some(vec![
                     1035.0, 1101.0, 1233.0, 1299.0, 2619.0, 2829.0, 3249.0, 3459.0
+                ])
+            );
+        }
+    }
+
+    #[test]
+    fn conv_and_bias_grouped() {
+        let mut graph = Graph::new();
+        graph.new_tensor_f32(
+            "X",
+            Some((1..=64).map(|v| v as f32).collect()),
+            vec![1, 4, 4, 4],
+        );
+        graph.new_tensor_f32(
+            "W",
+            Some((0..4 * 2 * 3 * 3).map(|v| v as f32).collect()),
+            vec![4, 2, 3, 3],
+        );
+        graph.new_tensor_f32("b", Some(vec![1.0, 1.0, 2.0, 2.0]), vec![2]);
+        graph.new_tensor_f32("Y", None, vec![1, 4, 2, 2]);
+        graph
+            .new_op(
+                vec!["X", "W", "b"],
+                vec!["Y"],
+                "my_conv",
+                OpType::Conv {
+                    attr: ConvOp::new(vec![1, 1], 2, vec![3, 3], vec![0, 0, 0, 0], vec![1, 1]),
+                },
+            )
+            .unwrap();
+        graph.run().unwrap();
+        let out = graph.get_output("Y").unwrap();
+        if let Tensor::F32 { values, .. } = out {
+            assert_eq!(
+                values,
+                &Some(vec![
+                    2947.0, 3100.0, 3559.0, 3712.0, 7483.0, 7960.0, 9391.0, 9868.0, 37652.0,
+                    38453.0, 40856.0, 41657.0, 52556.0, 53681.0, 57056.0, 58181.0
                 ])
             );
         }
