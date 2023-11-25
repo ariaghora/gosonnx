@@ -14,14 +14,15 @@ use crate::{
 };
 
 use self::{
-    average_pool::AveragePoolOp, bin_op::BinOpElementwise, concat::ConcatOp, conv::ConvOp,
-    conv_transpose::ConvTransposeOp, flatten::FlattenOp, gemm::GemmOp,
-    global_average_pool::GlobalAveragePoolOp, maxpool::MaxPoolOp, resize::ResizeOp,
-    un_op::UnOpElementwise,
+    average_pool::AveragePoolOp, batch_normalization::BatchNormalizationOp,
+    bin_op::BinOpElementwise, concat::ConcatOp, conv::ConvOp, conv_transpose::ConvTransposeOp,
+    flatten::FlattenOp, gemm::GemmOp, global_average_pool::GlobalAveragePoolOp, maxpool::MaxPoolOp,
+    resize::ResizeOp, un_op::UnOpElementwise,
 };
 
 pub mod add;
 pub mod average_pool;
+mod batch_normalization;
 pub mod bin_op;
 pub mod clip;
 pub mod concat;
@@ -41,6 +42,9 @@ pub mod un_op;
 define_ops!(
     Add { BinOpElementwise },
     AveragePool { AveragePoolOp },
+    BatchNormalization {
+        BatchNormalizationOp
+    },
     Clip { ClipOp },
     Concat { ConcatOp },
     Conv { ConvOp },
@@ -73,6 +77,12 @@ impl OpType {
                     get_attr_ints(node_proto, "kernel_shape"),
                     get_attr_ints(node_proto, "pads"),
                     get_attr_ints(node_proto, "strides"),
+                ),
+            }),
+            "BatchNormalization" => Ok(Self::BatchNormalization {
+                attr: BatchNormalizationOp::new(
+                    get_attr_f(node_proto, "epsilon"),
+                    get_attr_f(node_proto, "momentum"),
                 ),
             }),
             "Clip" => Ok(Self::Clip {
