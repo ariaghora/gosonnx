@@ -27,5 +27,6 @@ pub enum GosonnxError {
         found: Vec<i64>,
     },
     UnknownTensorType(String),
+    TensorNotFound(String),
     Error(String),
 }

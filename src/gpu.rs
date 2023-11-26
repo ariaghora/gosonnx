@@ -109,10 +109,14 @@ impl GPUExecutor {
             self.storage_buf_map.insert(tensor_name.clone(), buf);
         }
 
-        let terminal_outputs = graph.terminal_outputs();
+        let mut terminal_outputs = graph.terminal_outputs();
+
+        // User can also request outputs other than those belonging to terminal nodes.
+        // For such optional outputs, we also need to generate staging buffer.
+        terminal_outputs.append(&mut graph.optional_output_tensors);
 
         // Prepare staging buffers. There will be one staging buffer corresponding to
-        // each terminal node output.
+        // graph's terminal node output.
         for output in &terminal_outputs {
             let tensor = &graph.tensor_map[output];
             let staging_buf = match tensor {

@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashMap};
 use protobuf::Message;
 
 use crate::errors::GosonnxError;
-use crate::errors::GosonnxError::{Error, TensorCreateError};
+use crate::errors::GosonnxError::{Error, TensorCreateError, TensorNotFound};
 use crate::gpu::GPUExecutor;
 use crate::onnx;
 use crate::onnx::onnx::{TensorProto, ValueInfoProto};
@@ -135,6 +135,7 @@ pub struct Graph {
     pub tensor_map: HashMap<String, Tensor>,
     pub op_map: HashMap<String, Op>,
     pub output_tensor_map: HashMap<String, Tensor>,
+    pub optional_output_tensors: Vec<String>,
 }
 
 impl Graph {
@@ -144,6 +145,7 @@ impl Graph {
             tensor_map: HashMap::new(),
             op_map: HashMap::new(),
             output_tensor_map: HashMap::new(),
+            optional_output_tensors: vec![],
         }
     }
 
@@ -265,6 +267,14 @@ impl Graph {
         assert_eq!(old_in.shape(), tensor.shape());
 
         self.tensor_map.insert(name.into(), tensor);
+    }
+
+    pub fn add_optional_output(&mut self, name: &str) -> Result<(), GosonnxError> {
+        match self.tensor_map.get(name) {
+            None => return Err(TensorNotFound(name.to_string())),
+            Some(_) => self.optional_output_tensors.push(name.to_string()),
+        };
+        Ok(())
     }
 }
 
