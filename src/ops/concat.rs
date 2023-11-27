@@ -66,7 +66,7 @@ impl Compile for &ConcatOp {
         graph: &crate::graph::Graph,
     ) -> [u32; 3] {
         let local_size_x = 256;
-        let numel = tensor_len(&graph.tensor_map[&op.inputs[0]]).unwrap();
+        let numel = tensor_len(&graph.tensor_map[&op.outputs[0]]).unwrap();
         let num_workgroups_x = (numel + local_size_x - 1) / local_size_x;
         [num_workgroups_x as u32, 1, 1]
     }
@@ -198,6 +198,66 @@ mod test {
                     1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 1.0, 1.0, 2.0, 2.0, 3.0, 3.0
                 ])
             );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_concat_1_1x1x2x2() -> Result<(), GosonnxError> {
+        let mut graph = Graph::new();
+        graph.new_tensor_f32("t1", Some(vec![1.0, 1.0, 1.0, 1.0]), vec![1, 1, 2, 2])?;
+        graph.new_tensor_f32("t2", Some(vec![2.0, 2.0, 2.0, 2.0]), vec![1, 1, 2, 2])?;
+        graph.new_tensor_f32("t3", Some(vec![3.0, 3.0, 3.0, 3.0]), vec![1, 1, 2, 2])?;
+        graph.new_tensor_f32("t4", Some(vec![4.0, 4.0, 4.0, 4.0]), vec![1, 1, 2, 2])?;
+        graph.new_tensor_f32("y", None, vec![1, 4, 2, 2])?;
+        graph
+            .new_op(
+                vec!["t1", "t2", "t3", "t4"],
+                vec!["y"],
+                "concat",
+                OpType::Concat {
+                    attr: ConcatOp { axis: 1 },
+                },
+            )
+            .unwrap();
+        graph.run().unwrap();
+        let out = graph.get_output("y").unwrap();
+        if let Tensor::F32 { values, .. } = out {
+            assert_eq!(
+                values,
+                &Some(vec![
+                    1., 1., 1., 1., 2., 2., 2., 2., 3., 3., 3., 3., 4., 4., 4., 4.
+                ])
+            );
+        }
+        Ok(())
+    }
+    #[test]
+    fn test_concat_1_1x2x2x2() -> Result<(), GosonnxError> {
+        let mut graph = Graph::new();
+        graph.new_tensor_f32("t1", Some(vec![1.0; 24 * 200 * 200]), vec![1, 24, 200, 200])?;
+        graph.new_tensor_f32("t2", Some(vec![2.0; 24 * 200 * 200]), vec![1, 24, 200, 200])?;
+        graph.new_tensor_f32("t3", Some(vec![3.0; 24 * 200 * 200]), vec![1, 24, 200, 200])?;
+        graph.new_tensor_f32("t4", Some(vec![4.0; 24 * 200 * 200]), vec![1, 24, 200, 200])?;
+        graph.new_tensor_f32("y", None, vec![1, 24 * 4, 200, 200])?;
+        graph
+            .new_op(
+                vec!["t1", "t2", "t3", "t4"],
+                vec!["y"],
+                "concat",
+                OpType::Concat {
+                    attr: ConcatOp { axis: 1 },
+                },
+            )
+            .unwrap();
+        graph.run().unwrap();
+        let out = graph.get_output("y").unwrap();
+        if let Tensor::F32 { values, .. } = out {
+            let mut expected_vals = vec![1.0; 24 * 200 * 200];
+            expected_vals.append(&mut vec![2.0; 24 * 200 * 200]);
+            expected_vals.append(&mut vec![3.0; 24 * 200 * 200]);
+            expected_vals.append(&mut vec![4.0; 24 * 200 * 200]);
+            assert!(values == &Some(expected_vals));
         }
         Ok(())
     }
