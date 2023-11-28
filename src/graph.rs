@@ -107,7 +107,7 @@ impl Tensor {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Op {
     pub op_type: OpType,
     pub op_name: String,

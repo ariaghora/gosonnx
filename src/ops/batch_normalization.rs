@@ -4,7 +4,7 @@ use crate::graph::{Graph, Op};
 use crate::ops::{to_csv_str, Compile, ShaderTemplate};
 use serde::Serialize;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct BatchNormalizationOp {
     epsilon: Option<f32>,
     momentum: Option<f32>,

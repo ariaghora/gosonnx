@@ -8,7 +8,7 @@ use crate::{
 
 use super::{Compile, ShaderTemplate};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct MaxPoolOp {
     ceil_mode: i64,
     kernel_shape: Vec<i64>,

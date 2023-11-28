@@ -5,7 +5,7 @@ use crate::{graph::Tensor, utils::tensor_len};
 
 use super::{bin_op::shape_to_strides, to_csv_str, Compile};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ConcatOp {
     pub axis: i64,
 }

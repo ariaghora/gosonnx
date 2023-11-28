@@ -6,7 +6,7 @@ use crate::graph::{Graph, Op};
 use crate::ops::{Compile, ShaderTemplate};
 use crate::utils::tensor_len;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ClipOp {}
 
 impl ClipOp {

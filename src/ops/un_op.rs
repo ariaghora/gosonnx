@@ -10,8 +10,9 @@ use crate::{
 
 use super::{Compile, ShaderTemplate};
 
+#[derive(Clone)]
 pub struct UnOpElementwise {
-    pub attrs: Vec<(String, Box<dyn Debug>)>,
+    pub attrs: Vec<(String, String)>,
 }
 
 impl Serialize for UnOpElementwise {
@@ -30,7 +31,7 @@ impl Debug for UnOpElementwise {
 }
 
 impl UnOpElementwise {
-    pub fn new(attrs: Vec<(String, Box<dyn Debug>)>) -> Self {
+    pub fn new(attrs: Vec<(String, String)>) -> Self {
         Self { attrs }
     }
 }
@@ -43,7 +44,7 @@ impl Compile for &UnOpElementwise {
         graph: &Graph,
     ) -> Result<(), GosonnxError> {
         for (k, v) in self.attrs.iter() {
-            shader_templ.push_attr(k, &format!("{:?}", v));
+            shader_templ.push_attr(k, v);
         }
 
         let input = &graph.tensor_map[&op.inputs[0]];

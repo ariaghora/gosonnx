@@ -10,7 +10,7 @@ use crate::{
 
 use super::{Compile, ShaderTemplate};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct BinOpElementwise;
 
 #[derive(Debug)]

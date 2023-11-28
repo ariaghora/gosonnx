@@ -27,8 +27,8 @@ impl Optimizer {
                 ) {
                     ("Gemm", "Relu") => {
                         // TODO: fix linkage and set curr's activation
+                        let mut fused = curr.clone();
 
-                        // new_op_map.insert(curr.op_name.to_string(), *curr.clone());
                         head += 2;
                     }
                     _ => head += 1,

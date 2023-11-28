@@ -5,7 +5,7 @@ use crate::graph::{Graph, Op};
 
 use super::{to_csv_str, Compile, ShaderTemplate};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ConvOp {
     dilations: Vec<i64>,
     group: i64,

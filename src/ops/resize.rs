@@ -8,7 +8,7 @@ use crate::graph::{Tensor, TensorType};
 
 use super::{to_csv_str, Compile};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ResizeOp {
     antialias: Option<i64>,
     axes: Option<Vec<i64>>,

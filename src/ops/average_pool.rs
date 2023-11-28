@@ -6,7 +6,7 @@ use crate::graph::{Graph, Op};
 
 use super::{to_csv_str, Compile, ShaderTemplate};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct AveragePoolOp {
     auto_pad: Option<String>,
     ceil_mode: Option<i64>,

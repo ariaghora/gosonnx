@@ -6,7 +6,7 @@ use crate::graph::{Graph, Op};
 
 use super::{Compile, ShaderTemplate};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct GemmOp {
     alpha: Option<f32>,
     beta: Option<f32>,

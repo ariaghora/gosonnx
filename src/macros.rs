@@ -1,17 +1,14 @@
 #[macro_export]
 macro_rules! attribute {
     ($key:expr, $value:expr) => {
-        (
-            $key.to_string(),
-            Box::new($value) as Box<dyn std::fmt::Debug>,
-        )
+        ($key.to_string(), format!("{}", $value))
     };
 }
 
 #[macro_export]
 macro_rules! define_ops {
     ($($variant:ident { $attr_type:ty }),+ $(,)? ) => {
-        #[derive(Debug, Serialize)]
+        #[derive(Debug, Serialize, Clone)]
         pub enum OpType {
             $(
                 $variant { attr: $attr_type },
