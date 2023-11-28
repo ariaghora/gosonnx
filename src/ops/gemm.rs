@@ -38,10 +38,16 @@ impl Compile for &GemmOp {
         graph: &Graph,
     ) -> Result<(), GosonnxError> {
         shader_templ.push_attr("use_bias", &(op.inputs.len() > 2));
-        shader_templ.push_attr("alpha", &self.alpha.unwrap_or(1.0));
-        shader_templ.push_attr("beta", &self.beta.unwrap_or(1.0));
-        shader_templ.push_attr("trans_a", &self.trans_a.unwrap_or(0));
-        shader_templ.push_attr("trans_b", &self.trans_b.unwrap_or(0));
+
+        let alpha = self.alpha.unwrap_or(1.0);
+        let beta = self.beta.unwrap_or(1.0);
+        shader_templ.push_attr("alpha", &alpha);
+        shader_templ.push_attr("beta", &beta);
+
+        let trans_a = self.trans_a.unwrap_or(0);
+        let trans_b = self.trans_b.unwrap_or(0);
+        shader_templ.push_attr("trans_a", &trans_a);
+        shader_templ.push_attr("trans_b", &trans_b);
 
         let t_a = &graph.tensor_map[&op.inputs[0]];
         let t_b = &graph.tensor_map[&op.inputs[1]];
@@ -56,12 +62,12 @@ impl Compile for &GemmOp {
         shader_templ.push_attr("a_type", &a_type);
         shader_templ.push_attr("b_type", &b_type);
 
-        let m = if self.trans_a == Some(0) {
+        let m = if trans_a == 0 {
             t_a.shape()[0]
         } else {
             t_a.shape()[1]
         };
-        let (k, n) = if self.trans_b == Some(0) {
+        let (k, n) = if trans_b == 0 {
             (t_b.shape()[0], t_b.shape()[1])
         } else {
             (t_b.shape()[1], t_b.shape()[0])
