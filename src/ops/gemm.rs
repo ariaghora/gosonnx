@@ -99,7 +99,7 @@ impl Compile for &GemmOp {
             }
         }
 
-        shader_templ.push_attr("activation", &self.activation);
+        // shader_templ.push_attr("activation", &self.activation);
 
         Ok(())
     }

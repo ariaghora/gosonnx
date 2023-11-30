@@ -216,7 +216,6 @@ impl GPUExecutor {
         num_work_groups: &[u32],
     ) -> Result<(), GosonnxError> {
         let mut defines = naga::FastHashMap::default();
-        defines.insert("GL_EXT_debug_printf".into(), "enable".into());
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Glsl {

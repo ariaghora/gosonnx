@@ -115,6 +115,7 @@ pub struct Op {
     pub nexts: Vec<String>,
     pub inputs: Vec<String>,
     pub outputs: Vec<String>,
+    pub extra_attr: Option<Vec<(String, String)>>,
 }
 
 impl Op {
@@ -126,6 +127,7 @@ impl Op {
             nexts: vec![],
             inputs: vec![],
             outputs: vec![],
+            extra_attr: None,
         }
     }
 }
@@ -165,6 +167,7 @@ impl Graph {
                 nexts: vec![], // this will be filled later
                 inputs: input_names.iter().map(|s| s.to_string()).collect(),
                 outputs: output_names.iter().map(|s| s.to_string()).collect(),
+                extra_attr: None,
             },
         );
         Ok(())

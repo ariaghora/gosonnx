@@ -59,6 +59,7 @@ pub(crate) fn parse_model_proto(model_proto: &mut ModelProto) -> Result<Graph, G
                     inputs: node_proto.get_input().to_vec(),
                     prevs: vec![],
                     nexts: vec![],
+                    extra_attr: None,
                 };
 
                 graph.op_map.insert(op.op_name.clone(), op);

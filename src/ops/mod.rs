@@ -251,6 +251,11 @@ impl<'gr, 'gpu> OpType {
         graph: &'gr Graph,
     ) -> Result<(String, [u32; 3]), GosonnxError> {
         let mut templ = ShaderTemplate::new(&op.op_name, shader_source)?;
+        if let Some(extra_attr) = &op.extra_attr {
+            for (k, v) in extra_attr {
+                templ.push_attr(k, v);
+            }
+        }
         attr.compile(op, &mut templ, graph)?;
         let compiled = templ.compile()?;
         let wg = attr.compute_workgroup_size(op, graph);

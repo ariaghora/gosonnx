@@ -18,7 +18,6 @@ impl Optimizer {
         graph.compile()?;
 
         let sorted = topo(&graph.op_map);
-        let mut new_op_map: HashMap<String, Op> = HashMap::new();
 
         // Activation function fusion
         for s in sorted {
@@ -27,15 +26,25 @@ impl Optimizer {
                 Some(op) => op,
             };
 
-            let prev_name = curr.prevs[0].clone();
+            match curr.op_type {
+                OpType::Relu { .. } => {
+                    let extra_attrs = vec![("activation".to_string(), "Relu".to_string())];
+                    // Remove current activation node and correct the connection of previous
+                    // node
+                    let curr_next = curr.nexts.clone();
+                    let curr_outputs = curr.outputs.clone();
+                    let curr_name = curr.op_name.clone();
+                    let prev = graph.op_map.get_mut(&curr.prevs[0].clone()).unwrap();
+                    prev.nexts = curr_next;
+                    prev.outputs = curr_outputs;
+                    prev.extra_attr = Some(extra_attrs);
 
-            if let OpType::Relu { .. } = curr.op_type {
-                let prev = graph.op_map.get_mut(&prev_name).unwrap();
-                // if prev.op_type.compile()
+                    graph.op_map.remove(&curr_name);
+                }
+                _ => {}
             }
         }
 
-        graph.op_map = new_op_map;
         Ok(graph)
     }
 }
