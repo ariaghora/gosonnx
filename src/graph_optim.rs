@@ -30,9 +30,8 @@ impl Optimizer {
             let prev_name = curr.prevs[0].clone();
 
             if let OpType::Relu { .. } = curr.op_type {
-                // TODO:
-                // prev.templ.push_attr()
                 let prev = graph.op_map.get_mut(&prev_name).unwrap();
+                // if prev.op_type.compile()
             }
         }
 

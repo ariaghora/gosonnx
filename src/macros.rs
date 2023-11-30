@@ -35,6 +35,17 @@ macro_rules! define_ops {
                 };
                 Ok((compiled, wg))
             }
+
+            pub fn activable(&self)->bool {
+                match self {
+                    $(
+                        OpType::$variant { attr } => {
+                            attr.activable()
+                        },
+                    )+
+                    _ => false
+                }
+            }
         }
 
         impl fmt::Display for OpType {

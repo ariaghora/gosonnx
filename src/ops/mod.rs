@@ -179,7 +179,7 @@ pub trait Compile {
         graph: &Graph,
     ) -> Result<(), GosonnxError>;
     fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3];
-    fn activable(&mut self) -> bool;
+    fn activable(&self) -> bool;
 }
 
 #[derive(Debug, Clone)]

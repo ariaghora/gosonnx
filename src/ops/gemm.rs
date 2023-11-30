@@ -117,7 +117,7 @@ impl Compile for &GemmOp {
         [num_workgroups_x as u32, num_workgroups_y as u32, 1]
     }
 
-    fn activable(&mut self) -> bool {
+    fn activable(&self) -> bool {
         true
     }
 }

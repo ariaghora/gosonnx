@@ -62,7 +62,7 @@ impl Compile for &FlattenOp {
         ]
     }
 
-    fn activable(&mut self) -> bool {
+    fn activable(&self) -> bool {
         false
     }
 }

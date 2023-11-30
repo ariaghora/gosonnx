@@ -225,7 +225,7 @@ impl Compile for &BinOpElementwise {
         [num_workgroups_x as u32, 1, 1]
     }
 
-    fn activable(&mut self) -> bool {
+    fn activable(&self) -> bool {
         false
     }
 }

@@ -75,7 +75,7 @@ impl Compile for &BatchNormalizationOp {
         [workgroup_size_x, workgroup_size_y, 1]
     }
 
-    fn activable(&mut self) -> bool {
+    fn activable(&self) -> bool {
         true
     }
 }
