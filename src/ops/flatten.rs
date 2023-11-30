@@ -61,6 +61,10 @@ impl Compile for &FlattenOp {
             num_workgroups_z as u32,
         ]
     }
+
+    fn activable(&mut self) -> bool {
+        false
+    }
 }
 
 #[cfg(test)]

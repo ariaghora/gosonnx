@@ -6,4 +6,4 @@ pub mod utils;
 #[macro_use]
 pub mod macros;
 mod errors;
-mod graph_optim;
+pub mod graph_optim;

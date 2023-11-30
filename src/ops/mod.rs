@@ -179,19 +179,18 @@ pub trait Compile {
         graph: &Graph,
     ) -> Result<(), GosonnxError>;
     fn compute_workgroup_size(&self, op: &Op, graph: &Graph) -> [u32; 3];
+    fn activable(&mut self) -> bool;
 }
 
-pub struct ShaderTemplate<'templ> {
+#[derive(Debug, Clone)]
+pub struct ShaderTemplate {
     tera: tera::Tera,
     ctx: tera::Context,
-    template_name: &'templ str,
+    template_name: String,
 }
 
-impl<'templ> ShaderTemplate<'templ> {
-    pub fn new(
-        template_name: &'templ str,
-        template_str: &'templ str,
-    ) -> Result<Self, GosonnxError> {
+impl ShaderTemplate {
+    pub fn new(template_name: &str, template_str: &str) -> Result<Self, GosonnxError> {
         let mut tera = tera::Tera::default();
         let ctx = tera::Context::new();
 
@@ -219,14 +218,14 @@ impl<'templ> ShaderTemplate<'templ> {
         Ok(Self {
             tera,
             ctx,
-            template_name,
+            template_name: template_name.to_string(),
         })
     }
 
     pub fn compile(&self) -> Result<String, GosonnxError> {
         let compiled = self
             .tera
-            .render(self.template_name, &self.ctx)
+            .render(&self.template_name, &self.ctx)
             .map_err(|e| ShaderCompileError(e.to_string()))?;
         Ok(compiled)
     }
@@ -235,7 +234,7 @@ impl<'templ> ShaderTemplate<'templ> {
         self.ctx.insert(attr_name, attr_val)
     }
 
-    pub fn add_template(&mut self, name: &'templ str, content: &'templ str) -> Result<(), String> {
+    pub fn add_template(&mut self, name: &str, content: &str) -> Result<(), String> {
         self.tera
             .add_raw_template(name, content)
             .map_err(|e| e.to_string())?;
@@ -252,7 +251,6 @@ impl<'gr, 'gpu> OpType {
         graph: &'gr Graph,
     ) -> Result<(String, [u32; 3]), GosonnxError> {
         let mut templ = ShaderTemplate::new(&op.op_name, shader_source)?;
-        // let compiled = attr.compile(op, shader_source, graph)?;
         attr.compile(op, &mut templ, graph)?;
         let compiled = templ.compile()?;
         let wg = attr.compute_workgroup_size(op, graph);

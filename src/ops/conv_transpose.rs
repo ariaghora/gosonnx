@@ -107,6 +107,10 @@ impl Compile for &ConvTransposeOp {
 
         [workgroup_size_x, workgroup_size_y, workgroup_size_z]
     }
+
+    fn activable(&mut self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

@@ -7,7 +7,7 @@ use crate::errors::GosonnxError::{Error, TensorCreateError, TensorNotFound};
 use crate::gpu::GPUExecutor;
 use crate::onnx;
 use crate::onnx::onnx::{TensorProto, ValueInfoProto};
-use crate::ops::OpType;
+use crate::ops::{OpType, ShaderTemplate};
 
 #[derive(Debug)]
 pub enum TensorType {

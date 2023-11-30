@@ -224,6 +224,10 @@ impl Compile for &BinOpElementwise {
         let num_workgroups_x = (numel + local_size_x - 1) / local_size_x;
         [num_workgroups_x as u32, 1, 1]
     }
+
+    fn activable(&mut self) -> bool {
+        false
+    }
 }
 
 #[cfg(test)]

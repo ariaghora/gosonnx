@@ -12,6 +12,7 @@ pub struct GemmOp {
     beta: Option<f32>,
     trans_a: Option<i64>,
     trans_b: Option<i64>,
+    pub activation: Option<String>,
 }
 
 impl GemmOp {
@@ -26,6 +27,7 @@ impl GemmOp {
             beta,
             trans_a,
             trans_b,
+            activation: None,
         }
     }
 }
@@ -59,8 +61,8 @@ impl Compile for &GemmOp {
                 right: b_type,
             });
         }
-        shader_templ.push_attr("a_type", &a_type);
-        shader_templ.push_attr("b_type", &b_type);
+        shader_templ.push_attr("in_type", &a_type);
+        shader_templ.push_attr("out_type", &b_type);
 
         let m = if trans_a == 0 {
             t_a.shape()[0]
@@ -97,6 +99,8 @@ impl Compile for &GemmOp {
             }
         }
 
+        shader_templ.push_attr("activation", &self.activation);
+
         Ok(())
     }
 
@@ -111,6 +115,10 @@ impl Compile for &GemmOp {
         let num_workgroups_y = (m + local_size_y - 1) / local_size_y;
 
         [num_workgroups_x as u32, num_workgroups_y as u32, 1]
+    }
+
+    fn activable(&mut self) -> bool {
+        true
     }
 }
 
