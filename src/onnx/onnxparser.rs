@@ -63,10 +63,10 @@ pub(crate) fn parse_model_proto(model_proto: &mut ModelProto) -> Result<Graph, G
 
                 graph.op_map.insert(op.op_name.clone(), op);
             }
-            Err(e) => {
-                println!("{:#?}", e);
-                // TODO: actually return error
-                // return Err(e);
+            Err(_) => {
+                return Err(GosonnxError::UnsupportedONNXOps(
+                    node_proto.get_op_type().to_string(),
+                ));
             }
         }
     }
