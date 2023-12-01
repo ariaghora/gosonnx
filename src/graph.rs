@@ -137,7 +137,7 @@ impl Op {
 }
 
 pub struct Graph {
-    pub(crate) executor: Option<RefCell<GPUExecutor>>,
+    pub executor: Option<RefCell<GPUExecutor>>,
     pub tensor_map: HashMap<String, Tensor>,
     pub op_map: HashMap<String, Op>,
     pub output_tensor_map: HashMap<String, Tensor>,

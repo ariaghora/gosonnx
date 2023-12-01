@@ -19,7 +19,7 @@ pub struct Session {
 pub struct GPUExecutor {
     pub storage_buf_map: HashMap<String, wgpu::Buffer>,
     pub staging_buf_map: HashMap<String, wgpu::Buffer>,
-    session: Option<Session>,
+    pub session: Option<Session>,
 }
 
 fn create_storage_buf<'a, T: bytemuck::Pod + Default + Debug>(
