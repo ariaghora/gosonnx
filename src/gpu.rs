@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 
 use include_dir::{include_dir, Dir};
 use wgpu::util::DeviceExt;
-use wgpu::Limits;
+use wgpu::{Device, Limits, Queue};
 
 use crate::errors::GosonnxError;
 use crate::graph::{Graph, Op, Tensor};
@@ -10,9 +10,16 @@ use crate::utils::tensor_len;
 
 pub static SHADER_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/shader");
 
+pub struct Session {
+    device: Device,
+    queue: Queue,
+    terminal_outputs: Vec<String>,
+}
+
 pub struct GPUExecutor {
     pub storage_buf_map: HashMap<String, wgpu::Buffer>,
     pub staging_buf_map: HashMap<String, wgpu::Buffer>,
+    session: Option<Session>,
 }
 
 fn create_storage_buf<'a, T: bytemuck::Pod + Default + Debug>(
@@ -82,14 +89,16 @@ impl GPUExecutor {
         Self {
             storage_buf_map: HashMap::new(),
             staging_buf_map: HashMap::new(),
+            session: None,
         }
     }
 
-    pub fn execute(&mut self, graph: &mut Graph) -> Result<(), GosonnxError> {
-        pollster::block_on(self.execute_async(graph))
+    pub fn init_session(&mut self, graph: &mut Graph) -> Result<Session, GosonnxError> {
+        let res = pollster::block_on(self.init_async(graph))?;
+        Ok(res)
     }
 
-    async fn execute_async(&mut self, graph: &mut Graph) -> Result<(), GosonnxError> {
+    async fn init_async(&mut self, graph: &mut Graph) -> Result<Session, GosonnxError> {
         let (device, queue) = self.create_device().await?;
 
         // Prepare storage buffers
@@ -133,6 +142,20 @@ impl GPUExecutor {
             self.staging_buf_map.insert(output.clone(), staging_buf);
         }
 
+        Ok(Session {
+            device,
+            queue,
+            terminal_outputs,
+        })
+    }
+
+    async fn execute_async(
+        &mut self,
+        graph: &mut Graph,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        terminal_outputs: Vec<String>,
+    ) -> Result<(), GosonnxError> {
         let mut encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
@@ -203,6 +226,21 @@ impl GPUExecutor {
                 graph.output_tensor_map.insert(output.clone(), t);
             }
         }
+
+        Ok(())
+    }
+
+    pub fn execute_with_session(
+        &mut self,
+        graph: &mut Graph,
+        session: &Session,
+    ) -> Result<(), GosonnxError> {
+        pollster::block_on(self.execute_async(
+            graph,
+            &session.device,
+            &session.queue,
+            session.terminal_outputs.clone(),
+        ))?;
 
         Ok(())
     }
@@ -311,11 +349,6 @@ impl GPUExecutor {
             )
             .await
             .unwrap();
-
-        // println!(
-        //     "BUF LIMIT: {}",
-        //     device.l
-        // );
 
         Ok((device, queue))
     }

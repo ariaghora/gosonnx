@@ -53,7 +53,7 @@ void main() {
     if (global_x < out_dim[3] && global_y < out_dim[2] && global_z < out_dim[0]) {
         for (int oc = 0; oc < out_dim[1]; oc++) {
             int out_idx = get_output_pos(global_z, global_x, global_y, oc);
-            
+
             {% if use_bias %}
             Y[out_idx] = B[oc];
             {% else %}
@@ -67,11 +67,11 @@ void main() {
                     for (int kx = 0; kx < kernel_shape[1]; kx++) {
                         int in_x = int(floor((float(global_x) + float(pads[0]) - float(kx)) / float(strides[0])));
                         int in_y = int(floor((float(global_y) + float(pads[1]) - float(ky)) / float(strides[1])));
-                        
+
                         if (in_x >= 0 && in_x < in_dim[3] && in_y >= 0 && in_y < in_dim[2]) {
                             int in_idx = get_input_pos(global_z, in_x, in_y, ic);
-                            int k_idx = get_kernel_pos(kx, ky, ic, oc); 
-                            
+                            int k_idx = get_kernel_pos(kx, ky, ic, oc);
+
                             output_val += X[in_idx] * W[k_idx];
                         }
                     }

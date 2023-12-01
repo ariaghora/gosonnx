@@ -179,7 +179,7 @@ impl Graph {
 
     /// For all (A, B) node pairs in graph, connect A and B if A.outputs intersects
     /// with B.inputs and A != B
-    pub(crate) fn build_connections(&mut self) -> Result<(), GosonnxError> {
+    pub fn build_connections(&mut self) -> Result<(), GosonnxError> {
         let node_names = {
             let keys = self.op_map.keys();
             keys.into_iter()
@@ -212,13 +212,17 @@ impl Graph {
         Ok(())
     }
 
+    /// A quick API to run end-to-end graph. There is no separation of executor preparation and
+    /// execution. You can use GPUExecutor::init_session() and GPUExecutor::execute_with_session()
+    /// decouple both, enabling one-time session preparation and multiple-time execution.
     pub fn run(&mut self) -> Result<(), GosonnxError> {
         self.build_connections()?;
 
         // Initialize GPU executor and run it!
         let mut executor = GPUExecutor::new();
-        executor.execute(self)?;
-        self.executor = Some(RefCell::new(executor));
+        let session = executor.init_session(self)?;
+        executor.execute_with_session(self, &session)?;
+
         Ok(())
     }
 
