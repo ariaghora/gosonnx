@@ -94,8 +94,7 @@ impl Compile for &ResizeOp {
         let roi = &graph.tensor_map[&op.inputs[1]];
         if let Tensor::F32 { values, .. } = roi {
             if let Some(val) = values {
-                let roi_prod = val.iter().fold(1.0, |x, y| x * y);
-                if roi_prod > 0.0 {
+                if val.len() > 0 {
                     println!("Resize with ROI now is unsupported. It will be ignored.");
                 }
             }
@@ -132,12 +131,12 @@ impl Compile for &ResizeOp {
 
         let antialias = match self.antialias {
             Some(0) => 0,
-            None => {
-                println!("Defaulting antialias to 0");
-                0
-            }
+            None => 0,
             _ => {
-                println!("Antialias other than 0 is not supported yet");
+                println!(
+                    "Antialias other than 0 is not supported yet (found {:?})",
+                    self.antialias
+                );
                 0
             }
         };
