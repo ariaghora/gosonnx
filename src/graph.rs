@@ -7,7 +7,7 @@ use crate::errors::GosonnxError::{Error, TensorCreateError, TensorNotFound};
 use crate::gpu::GPUExecutor;
 use crate::onnx;
 use crate::onnx::onnx::{TensorProto, ValueInfoProto};
-use crate::ops::{OpType, ShaderTemplate};
+use crate::ops::OpType;
 
 #[derive(Debug)]
 pub enum TensorType {
@@ -130,6 +130,10 @@ impl Op {
             extra_attr: None,
         }
     }
+
+    pub fn activable(&self) -> bool {
+        self.op_type.activable()
+    }
 }
 
 pub struct Graph {
@@ -175,7 +179,7 @@ impl Graph {
 
     /// For all (A, B) node pairs in graph, connect A and B if A.outputs intersects
     /// with B.inputs and A != B
-    pub(crate) fn compile(&mut self) -> Result<(), GosonnxError> {
+    pub(crate) fn build_connections(&mut self) -> Result<(), GosonnxError> {
         let node_names = {
             let keys = self.op_map.keys();
             keys.into_iter()
@@ -209,7 +213,7 @@ impl Graph {
     }
 
     pub fn run(&mut self) -> Result<(), GosonnxError> {
-        self.compile()?;
+        self.build_connections()?;
 
         // Initialize GPU executor and run it!
         let mut executor = GPUExecutor::new();
@@ -278,6 +282,31 @@ impl Graph {
             Some(_) => self.optional_output_tensors.push(name.to_string()),
         };
         Ok(())
+    }
+
+    pub fn remove_node_and_connect_neighbors(&mut self, node_name: &str) {
+        if let Some(node) = self.op_map.remove(node_name) {
+            // Clone to avoid borrow checker issues
+            let prevs = node.prevs.clone();
+            let nexts = node.nexts.clone();
+
+            // Connect each previous node to each next node
+            for prev_name in prevs.iter() {
+                if let Some(prev_node) = self.op_map.get_mut(prev_name) {
+                    prev_node.nexts.retain(|n| n != node_name); // Remove current node
+                    prev_node.nexts.extend(nexts.iter().cloned()); // Connect to next nodes
+                    prev_node.outputs = node.outputs.clone();
+                }
+            }
+
+            // Update the previous nodes of each next node
+            for next_name in nexts.iter() {
+                if let Some(next_node) = self.op_map.get_mut(next_name) {
+                    next_node.prevs.retain(|p| p != node_name); // Remove current node
+                    next_node.prevs.extend(prevs.iter().cloned()); // Connect to previous nodes
+                }
+            }
+        }
     }
 }
 

@@ -69,9 +69,10 @@ impl Compile for &FlattenOp {
 
 #[cfg(test)]
 mod test {
+    use crate::ops::activation_op::ActivationOp;
     use crate::{
         graph::{Graph, Tensor},
-        ops::{un_op::UnOpElementwise, OpType},
+        ops::OpType,
     };
 
     use super::FlattenOp;
@@ -144,7 +145,7 @@ mod test {
                 vec!["Z"],
                 "relu",
                 OpType::Relu {
-                    attr: UnOpElementwise::new(vec![]),
+                    attr: ActivationOp::new(vec![]),
                 },
             )
             .unwrap();

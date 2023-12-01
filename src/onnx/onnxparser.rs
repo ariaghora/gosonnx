@@ -71,7 +71,7 @@ pub(crate) fn parse_model_proto(model_proto: &mut ModelProto) -> Result<Graph, G
             }
         }
     }
-    graph.compile()?;
+    graph.build_connections()?;
 
     Ok(graph)
 }

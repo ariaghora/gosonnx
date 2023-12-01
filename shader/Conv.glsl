@@ -1,22 +1,22 @@
 #version 450
 
 layout(set = 0, binding = 0) buffer Input {
-    {{X_type}} X[];
+    {{input_type}} X[];
 };
 layout(set = 0, binding = 1) buffer Weight {
-    {{W_type}} W[];
+    {{weight_type}} W[];
 };
 
 {% if use_bias %}
 layout(set = 0, binding = 2) buffer Bias {
-    {{B_type}} B[];
+    {{bias_type}} B[];
 };
 layout(set = 0, binding = 3) buffer Output {
-    {{Y_type}} Y[];
+    {{output_type}} Y[];
 };
 {% else %}
 layout(set = 0, binding = 2) buffer Output {
-    {{Y_type}} Y[];
+    {{output_type}} Y[];
 };
 {% endif %}
 
@@ -74,6 +74,8 @@ void main() {
                     {% endif %}
                 }
 
+                {{output_type}} output_val = Y[out_idx];
+
                 for (int ic = start_ic; ic < end_ic; ic++) {
                     for (int ky = 0; ky < kernel_shape[0]; ky++) {
                         for (int kx = 0; kx < kernel_shape[1]; kx++) {
@@ -83,11 +85,18 @@ void main() {
                             if (in_x >= 0 && in_x < in_dim[3] && in_y >= 0 && in_y < in_dim[2]) {
                                 int in_idx = get_input_pos(global_z, in_x, in_y, ic);
                                 int k_idx = get_kernel_pos(kx, ky, ic - start_ic, oc - start_oc, g);
-                                Y[out_idx] += X[in_idx] * W[k_idx];
+                                output_val += X[in_idx] * W[k_idx];
                             }
                         }
                     }
                 }
+
+                {{input_type}} input_val = output_val;
+
+                {% include "_activation_def" %}
+
+                Y[out_idx] = output_val;
+
             }
         }
     }

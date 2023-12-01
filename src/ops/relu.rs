@@ -1,9 +1,10 @@
 #[cfg(test)]
 mod test {
     use crate::errors::GosonnxError;
+    use crate::ops::activation_op::ActivationOp;
     use crate::{
         graph::{Graph, Tensor},
-        ops::{un_op::UnOpElementwise, OpType},
+        ops::OpType,
     };
 
     #[test]
@@ -16,7 +17,7 @@ mod test {
             vec!["Y"],
             "my_relu_1",
             OpType::Relu {
-                attr: UnOpElementwise::new(vec![]),
+                attr: ActivationOp::new(vec![]),
             },
         )?;
 

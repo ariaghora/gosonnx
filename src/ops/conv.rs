@@ -43,10 +43,10 @@ impl Compile for &ConvOp {
         let w = &graph.tensor_map[&op.inputs[1]];
         let y = &graph.tensor_map[&op.outputs[0]];
 
-        shader_template.push_attr("X_type", &x.type_glsl());
-        shader_template.push_attr("W_type", &w.type_glsl());
+        shader_template.push_attr("input_type", &x.type_glsl());
+        shader_template.push_attr("weight_type", &w.type_glsl());
         // Output type is assumed to be identical with input type
-        shader_template.push_attr("Y_type", &x.type_glsl());
+        shader_template.push_attr("output_type", &x.type_glsl());
 
         shader_template.push_attr("in_dim", &to_csv_str(&x.shape()));
         shader_template.push_attr("weight_dim", &to_csv_str(&w.shape()));
@@ -62,7 +62,7 @@ impl Compile for &ConvOp {
         if op.inputs.len() > 2 {
             shader_template.push_attr("use_bias", &true);
             let b = &graph.tensor_map[&op.inputs[2]];
-            shader_template.push_attr("B_type", &b.type_glsl());
+            shader_template.push_attr("bias_type", &b.type_glsl());
         }
 
         Ok(())

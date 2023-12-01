@@ -11,11 +11,11 @@ use crate::{
 use super::{Compile, ShaderTemplate};
 
 #[derive(Clone)]
-pub struct UnOpElementwise {
+pub struct ActivationOp {
     pub attrs: Vec<(String, String)>,
 }
 
-impl Serialize for UnOpElementwise {
+impl Serialize for ActivationOp {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -24,19 +24,19 @@ impl Serialize for UnOpElementwise {
     }
 }
 
-impl Debug for UnOpElementwise {
+impl Debug for ActivationOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "MyStruct {{ data: {} }}", "null")
     }
 }
 
-impl UnOpElementwise {
+impl ActivationOp {
     pub fn new(attrs: Vec<(String, String)>) -> Self {
         Self { attrs }
     }
 }
 
-impl Compile for &UnOpElementwise {
+impl Compile for &ActivationOp {
     fn compile(
         &self,
         op: &Op,
@@ -51,6 +51,7 @@ impl Compile for &UnOpElementwise {
         let output = &graph.tensor_map[&op.outputs[0]];
         shader_templ.push_attr("input_type", &input.type_glsl());
         shader_templ.push_attr("output_type", &output.type_glsl());
+
         Ok(())
     }
 
@@ -62,6 +63,8 @@ impl Compile for &UnOpElementwise {
     }
 
     fn activable(&self) -> bool {
-        true
+        // normally after activation function (this node) there won't be any activation function
+        // anymore, so this node's activable should return false
+        false
     }
 }

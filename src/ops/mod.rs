@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use crate::errors::GosonnxError;
 use crate::errors::GosonnxError::{Error, ShaderCompileError, UnsupportedONNXOps};
+use crate::ops::activation_op::ActivationOp;
 use crate::ops::clip::ClipOp;
 use crate::{
     attribute, define_ops,
@@ -17,9 +18,10 @@ use self::{
     average_pool::AveragePoolOp, batch_normalization::BatchNormalizationOp,
     bin_op::BinOpElementwise, concat::ConcatOp, conv::ConvOp, conv_transpose::ConvTransposeOp,
     flatten::FlattenOp, gemm::GemmOp, global_average_pool::GlobalAveragePoolOp, maxpool::MaxPoolOp,
-    resize::ResizeOp, un_op::UnOpElementwise,
+    resize::ResizeOp,
 };
 
+pub mod activation_op;
 pub mod add;
 pub mod average_pool;
 mod batch_normalization;
@@ -55,12 +57,12 @@ define_ops!(
     GlobalAveragePool {
         GlobalAveragePoolOp
     },
-    HardSigmoid { UnOpElementwise },
+    HardSigmoid { ActivationOp },
     MaxPool { MaxPoolOp },
     Mul { BinOpElementwise },
-    Relu { UnOpElementwise },
+    Relu { ActivationOp },
     Resize { ResizeOp },
-    Sigmoid { UnOpElementwise }
+    Sigmoid { ActivationOp }
 );
 
 impl OpType {
@@ -128,9 +130,15 @@ impl OpType {
                 attr: GlobalAveragePoolOp {},
             }),
             "HardSigmoid" => Ok(Self::HardSigmoid {
-                attr: UnOpElementwise::new(vec![
-                    attribute!("alpha", get_attr_f(node_proto, "alpha").unwrap_or(0.2)),
-                    attribute!("beta", get_attr_f(node_proto, "beta").unwrap_or(0.5)),
+                attr: ActivationOp::new(vec![
+                    attribute!(
+                        "HardSigmoid_alpha",
+                        get_attr_f(node_proto, "alpha").unwrap_or(0.2)
+                    ),
+                    attribute!(
+                        "HardSigmoid_beta",
+                        get_attr_f(node_proto, "beta").unwrap_or(0.5)
+                    ),
                 ]),
             }),
             "Flatten" => Ok(Self::Flatten {
@@ -148,7 +156,7 @@ impl OpType {
                 attr: BinOpElementwise {},
             }),
             "Relu" => Ok(Self::Relu {
-                attr: UnOpElementwise::new(vec![]),
+                attr: ActivationOp::new(vec![]),
             }),
             "Resize" => Ok(Self::Resize {
                 attr: ResizeOp::new(
@@ -164,7 +172,7 @@ impl OpType {
                 ),
             }),
             "Sigmoid" => Ok(Self::Sigmoid {
-                attr: UnOpElementwise::new(vec![]),
+                attr: ActivationOp::new(vec![]),
             }),
             _ => Err(UnsupportedONNXOps(node_proto.get_op_type().to_string())),
         }
@@ -205,11 +213,25 @@ impl ShaderTemplate {
             .unwrap()
             .contents_utf8()
             .unwrap();
+        let activation_def_shader_source = SHADER_DIR
+            .get_file("_activation_def.glsl")
+            .unwrap()
+            .contents_utf8()
+            .unwrap();
+        let activation_shader_source = SHADER_DIR
+            .get_file("_activation.glsl")
+            .unwrap()
+            .contents_utf8()
+            .unwrap();
 
         // Include ops specific template
         tera.add_raw_template("_unary_elementwise", unary_shader_source)
             .map_err(|e| Error(e.to_string()))?;
         tera.add_raw_template("_binary_elementwise", binary_shader_source)
+            .map_err(|e| Error(e.to_string()))?;
+        tera.add_raw_template("_activation_def", activation_def_shader_source)
+            .map_err(|e| Error(e.to_string()))?;
+        tera.add_raw_template("_activation", activation_shader_source)
             .map_err(|e| Error(e.to_string()))?;
 
         tera.add_raw_template(template_name, template_str)

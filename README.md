@@ -10,7 +10,14 @@ Please run onnxsim on the model first.
 
 # Adding your operator
 
+## Activation function
+
+- Prefix ALL attributes with op type. For example, in HardSigmoid activation op, there are `alpha` and `beta` attributes, we need to implement them as `HardSigmoid_alpha` and `HardSigmoid_beta`.
+    This will avoid attribute collision during graph optimization since the activation function shader code will be inserted in other op shader code that may have the same attribute name (e.g., Gemm has `alpha` and `beta` too). 
+
 `TODO`
+
+## 
 
 ---
 

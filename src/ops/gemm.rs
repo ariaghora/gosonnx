@@ -61,8 +61,8 @@ impl Compile for &GemmOp {
                 right: b_type,
             });
         }
-        shader_templ.push_attr("in_type", &a_type);
-        shader_templ.push_attr("out_type", &b_type);
+        shader_templ.push_attr("input_type", &a_type);
+        shader_templ.push_attr("output_type", &b_type);
 
         let m = if trans_a == 0 {
             t_a.shape()[0]
@@ -98,8 +98,6 @@ impl Compile for &GemmOp {
                 }
             }
         }
-
-        // shader_templ.push_attr("activation", &self.activation);
 
         Ok(())
     }

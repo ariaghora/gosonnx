@@ -1,10 +1,11 @@
 #[cfg(test)]
 mod test {
     use crate::errors::GosonnxError;
+    use crate::ops::activation_op::ActivationOp;
     use crate::{
         attribute,
         graph::{Graph, Tensor},
-        ops::{un_op::UnOpElementwise, OpType},
+        ops::OpType,
     };
 
     #[test]
@@ -21,8 +22,11 @@ mod test {
                 vec!["Y"],
                 "hard_sigmoid",
                 OpType::HardSigmoid {
-                    attr: UnOpElementwise {
-                        attrs: vec![attribute!("alpha", 0.5), attribute!("beta", 0.6)],
+                    attr: ActivationOp {
+                        attrs: vec![
+                            attribute!("HardSigmoid_alpha", 0.5),
+                            attribute!("HardSigmoid_beta", 0.6),
+                        ],
                     },
                 },
             )

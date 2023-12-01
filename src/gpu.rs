@@ -215,7 +215,7 @@ impl GPUExecutor {
         op: &Op,
         num_work_groups: &[u32],
     ) -> Result<(), GosonnxError> {
-        let mut defines = naga::FastHashMap::default();
+        let defines = naga::FastHashMap::default();
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Glsl {
@@ -305,7 +305,7 @@ impl GPUExecutor {
                 &wgpu::DeviceDescriptor {
                     label: None,
                     features: features & wgpu::Features::TIMESTAMP_QUERY,
-                    limits: limits,
+                    limits,
                 },
                 None,
             )

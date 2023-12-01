@@ -50,8 +50,13 @@ void main() {
             // Batch normalization formula
             float normalized = scaleValue * (inputValue - meanValue) / sqrt(varValue + epsilon) + bValue;
 
+            {{output_type}} output_val = normalized;
+            {{input_type}} input_val = output_val;
+
+            {% include "_activation_def" %}
+
             // Writing to output buffer
-            output_buf[index] = normalized;
+            output_buf[index] = output_val;
         }
     }
 }

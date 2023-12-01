@@ -1,10 +1,10 @@
 #version 450
 
 layout(set = 0, binding = 0) buffer Left {
-    {{in_type}} left[];
+    {{input_type}} left[];
 };
 layout(set = 0, binding = 1) buffer Right {
-    {{out_type}} right[];
+    {{output_type}} right[];
 };
 
 {% if use_bias %}
@@ -12,11 +12,11 @@ layout(set = 0, binding = 2) buffer Bias {
     {{bias_type}} bias[];
 };
 layout(set = 0, binding = 3) buffer Output {
-    {{in_type}} output[];
+    {{output_type}} output[];
 };
 {% else %}
 layout(set = 0, binding = 2) buffer Output {
-    {{in_type}} output[];
+    {{output_type}} output[];
 };
 {% endif %}
 
@@ -40,10 +40,10 @@ void main() {
     uint global_y = gl_GlobalInvocationID.y;
 
     if (global_x < n && global_y < m) {
-        {{in_type}} sum = 0.0;
+        {{output_type}} sum = 0.0;
         for (uint i = 0u; i < k; ++i) {
-            {{in_type}} a;
-            {{out_type}} b;
+            {{output_type}} a;
+            {{output_type}} b;
             if (trans_a == 1) {
                 // A transposed
                 a = left[i * m + global_y];
@@ -61,20 +61,16 @@ void main() {
 
         {% if use_bias %}
         {{bias_type}} bias_val = bias[global_y * uint(bias_w) + global_x % uint(bias_w)];
-        {{out_type}} out_val = alpha * sum + beta * bias_val;
+        {{output_type}} output_val = alpha * sum + beta * bias_val;
         {% else %}
-        {{out_type}} out_val = alpha * sum;
+        {{output_type}} output_val = alpha * sum;
         {% endif %}
 
-        {{in_type}} in_val = out_val;
+        {{input_type}} input_val = output_val;
 
-        {% if activation %}
-            {% if activation == "Relu" %}
-            out_val = max(0, in_val);
-            {% endif %}
-        {% endif %}
+        {% include "_activation_def" %}
 
-        output[global_y * n + global_x] = out_val;
+        output[global_y * n + global_x] = output_val;
 
     }
 }

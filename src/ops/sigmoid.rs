@@ -1,9 +1,10 @@
 #[cfg(test)]
 mod test {
     use crate::errors::GosonnxError;
+    use crate::ops::activation_op::ActivationOp;
     use crate::{
         graph::{Graph, Tensor},
-        ops::{un_op::UnOpElementwise, OpType},
+        ops::OpType,
         utils::vec_close,
     };
 
@@ -19,7 +20,7 @@ mod test {
                 vec!["Y"],
                 "sigmoid",
                 OpType::Sigmoid {
-                    attr: UnOpElementwise { attrs: vec![] },
+                    attr: ActivationOp { attrs: vec![] },
                 },
             )
             .unwrap();
