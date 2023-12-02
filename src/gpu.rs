@@ -93,12 +93,14 @@ impl GPUExecutor {
         }
     }
 
+    ///  Synchronous interface to `init_session_async`
     pub fn init_session(&mut self, graph: &mut Graph) -> Result<Session, GosonnxError> {
-        let res = pollster::block_on(self.init_async(graph))?;
+        let res = pollster::block_on(self.init_session_async(graph))?;
         Ok(res)
     }
 
-    async fn init_async(&mut self, graph: &mut Graph) -> Result<Session, GosonnxError> {
+    ///  Populate storage buffers based on the tensors required by all Ops in the graph.
+    async fn init_session_async(&mut self, graph: &mut Graph) -> Result<Session, GosonnxError> {
         let (device, queue) = self.create_device().await?;
 
         // Prepare storage buffers

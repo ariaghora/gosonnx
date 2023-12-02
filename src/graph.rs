@@ -300,6 +300,12 @@ impl Graph {
                     prev_node.nexts.retain(|n| n != node_name); // Remove current node
                     prev_node.nexts.extend(nexts.iter().cloned()); // Connect to next nodes
                     prev_node.outputs = node.outputs.clone();
+
+                    // remove node's input tensors since they're not used anymore. We keep the
+                    // node's outputs as they are now become
+                    for input in &node.inputs {
+                        self.tensor_map.remove(input);
+                    }
                 }
             }
 
