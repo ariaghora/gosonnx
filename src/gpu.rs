@@ -5,6 +5,7 @@ use wgpu::util::DeviceExt;
 use wgpu::{Device, Limits, Queue};
 
 use crate::errors::GosonnxError;
+use crate::errors::GosonnxError::Error;
 use crate::graph::{Graph, Op, Tensor};
 use crate::utils::tensor_len;
 
@@ -84,6 +85,24 @@ fn create_staging_buf<'a, T: bytemuck::Pod + Default + Debug>(
     data
 }
 
+fn storage_buf_from_tensor(device: &Device, buf_name: &str, tensor: &Tensor) -> wgpu::Buffer {
+    let buf: wgpu::Buffer = match tensor {
+        Tensor::F32 { values, shape } => create_storage_buf(&device, buf_name, values, shape),
+        Tensor::F64 { values, shape } => create_storage_buf(&device, buf_name, values, shape),
+        Tensor::I64 { values, shape } => create_storage_buf(&device, buf_name, values, shape),
+    };
+    buf
+}
+
+fn staging_buf_from_tensor(device: &Device, buf_name: &str, tensor: &Tensor) -> wgpu::Buffer {
+    let buf: wgpu::Buffer = match tensor {
+        Tensor::F32 { values, shape } => create_staging_buf(&device, buf_name, values, shape),
+        Tensor::F64 { values, shape } => create_staging_buf(&device, buf_name, values, shape),
+        Tensor::I64 { values, shape } => create_staging_buf(&device, buf_name, values, shape),
+    };
+    buf
+}
+
 impl GPUExecutor {
     pub fn new() -> Self {
         Self {
@@ -105,19 +124,9 @@ impl GPUExecutor {
 
         // Prepare storage buffers
         for (tensor_name, tensor_val) in graph.tensor_map.iter() {
-            let buf: wgpu::Buffer = match tensor_val {
-                Tensor::F32 { values, shape } => {
-                    create_storage_buf(&device, &tensor_name, values, shape)
-                }
-                Tensor::F64 { values, shape } => {
-                    create_storage_buf(&device, &tensor_name, values, shape)
-                }
-                Tensor::I64 { values, shape } => {
-                    create_storage_buf(&device, &tensor_name, values, shape)
-                }
-            };
-
-            self.storage_buf_map.insert(tensor_name.clone(), buf);
+            let storage_buf = storage_buf_from_tensor(&device, &tensor_name, tensor_val);
+            self.storage_buf_map
+                .insert(tensor_name.clone(), storage_buf);
         }
 
         let mut terminal_outputs = graph.terminal_outputs();
@@ -130,17 +139,7 @@ impl GPUExecutor {
         // graph's terminal node output.
         for output in &terminal_outputs {
             let tensor = &graph.tensor_map[output];
-            let staging_buf = match tensor {
-                Tensor::F32 { values, shape } => {
-                    create_staging_buf(&device, &output, values, shape)
-                }
-                Tensor::F64 { values, shape } => {
-                    create_staging_buf(&device, &output, values, shape)
-                }
-                Tensor::I64 { values, shape } => {
-                    create_staging_buf(&device, &output, values, shape)
-                }
-            };
+            let staging_buf = staging_buf_from_tensor(&device, &output, &tensor);
             self.staging_buf_map.insert(output.clone(), staging_buf);
         }
 
@@ -158,6 +157,27 @@ impl GPUExecutor {
         queue: &wgpu::Queue,
         terminal_outputs: Vec<String>,
     ) -> Result<(), GosonnxError> {
+        // Update the storage buffer first if there are changes in graph's tensors
+        let updated_tensor_names = &graph.updated_tensor_names.clone();
+        for updated_tensor_name in updated_tensor_names {
+            match self.storage_buf_map.get(updated_tensor_name) {
+                None => {
+                    return Err(Error(format!(
+                        "Trying to update buffer with name `{}` but it is not created yet",
+                        updated_tensor_name
+                    )))
+                }
+                Some(_) => {
+                    let updated_tensor = &graph.tensor_map[updated_tensor_name];
+                    let new_buf =
+                        storage_buf_from_tensor(&device, updated_tensor_name, updated_tensor);
+                    self.storage_buf_map
+                        .insert(updated_tensor_name.to_owned(), new_buf);
+                    graph.updated_tensor_names.remove(updated_tensor_name);
+                }
+            }
+        }
+
         let mut encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::{cell::RefCell, collections::HashMap};
 
 use protobuf::Message;
@@ -142,6 +143,10 @@ pub struct Graph {
     pub op_map: HashMap<String, Op>,
     pub output_tensor_map: HashMap<String, Tensor>,
     pub optional_output_tensors: Vec<String>,
+
+    // Keep track of updated tensor names. This is to notify executor to act accordingly, e.g.,
+    // GPUExecutor will update its storage buffer associated with the changed tensors
+    pub updated_tensor_names: HashSet<String>,
 }
 
 impl Graph {
@@ -152,6 +157,7 @@ impl Graph {
             op_map: HashMap::new(),
             output_tensor_map: HashMap::new(),
             optional_output_tensors: vec![],
+            updated_tensor_names: HashSet::new(),
         }
     }
 
@@ -317,6 +323,18 @@ impl Graph {
                 }
             }
         }
+    }
+
+    pub fn update_tensor_data(&mut self, name: &str, tensor: Tensor) -> Result<(), GosonnxError> {
+        let tname = name.to_string();
+        // Ensure that the tensor exists
+        self.tensor_map
+            .get(&tname)
+            .ok_or_else(|| Error(format!("Tensor with name `{}` not found", name)))?;
+
+        self.tensor_map.insert(tname.clone(), tensor);
+        self.updated_tensor_names.insert(tname);
+        Ok(())
     }
 }
 
