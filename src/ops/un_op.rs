@@ -49,6 +49,7 @@ impl Compile for &UnOpElementwise {
 
         let input = &graph.tensor_map[&op.inputs[0]];
         let output = &graph.tensor_map[&op.outputs[0]];
+        shader_templ.push_attr("output_len", &tensor_len(output).unwrap());
         shader_templ.push_attr("input_type", &input.type_glsl());
         shader_templ.push_attr("output_type", &output.type_glsl());
         Ok(())

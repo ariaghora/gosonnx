@@ -152,6 +152,8 @@ pub fn compile_binary(
     let r_len = tensor_len(input_2).unwrap();
     let (left_oneval, right_oneval) = (l_len <= 1, r_len <= 1);
 
+    _shader_templ.push_attr("output_len", &tensor_len(output).unwrap());
+
     if let Some(broadcast_result) = get_broadcast_shape(input_1.shape(), input_2.shape())? {
         let common_shape = broadcast_result.shape;
         _shader_templ.push_attr("common_shape", &to_csv_str(&common_shape));

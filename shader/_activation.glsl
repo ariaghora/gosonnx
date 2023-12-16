@@ -15,6 +15,10 @@ void main() {
     {{output_type}} output_val;
 
     uint idx = gl_GlobalInvocationID.x;
+    if (idx > {{output_len}}) {
+        return;
+    }
+
     {{input_type}} input_val = input_buf[idx];
 
     {% include "_activation_def" %}

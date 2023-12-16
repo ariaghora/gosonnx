@@ -33,6 +33,10 @@ void main() {
 
     uint idx = gl_GlobalInvocationID.x;
 
+    if (idx > {{output_len}}) {
+        return;
+    }
+
     {% if left_oneval %}
         {{input_1_type}} left = input_1_buf[0];
     {% else %}
