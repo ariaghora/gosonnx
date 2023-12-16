@@ -45,9 +45,6 @@ impl Compile for &BatchNormalizationOp {
         let output = &graph.tensor_map[&op.outputs[0]];
 
         let epsilon = self.epsilon.unwrap_or(1e-5);
-        if self.momentum.is_some() {
-            println!("Momentum is ignored due to running in eval mode");
-        }
 
         shader_templ.push_attr("input_type", &input.type_glsl());
         shader_templ.push_attr("scale_type", &scale.type_glsl());
