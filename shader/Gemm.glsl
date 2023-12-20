@@ -44,18 +44,20 @@ void main() {
         for (uint i = 0u; i < k; ++i) {
             {{output_type}} a;
             {{output_type}} b;
-            if (trans_a == 1) {
+
+            {% if trans_a== 1 %}
                 // A transposed
                 a = left[i * m + global_y];
-            } else {
+            {% else %}
                 a = left[global_y * k + i];
-            }
-            if (trans_b == 1) {
+            {% endif %}
+
+            {% if trans_b== 1 %}
                 // B transposed
                 b = right[global_x * k + i];
-            } else {
+            {% else %}
                 b = right[i * n + global_x];
-            }
+            {% endif %}
             sum += a * b;
         }
 
